@@ -1,0 +1,98 @@
+# ==========================================
+# Hệ điều hành & Công cụ phát triển chung (OS & IDEs)
+# ==========================================
+# Hệ điều hành
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+Desktop.ini
+
+# IntelliJ (Android Studio, WebStorm, v.v.)
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Visual Studio Code
+# Mở khóa nếu bạn không muốn chia sẻ cấu hình chạy (launch configurations) cá nhân
+.vscode/
+
+# Các file rác/Log khác
+*.log
+*.class
+*.pyc
+*.swp
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+
+# ==========================================
+# Node.js & Quản lý thư viện (NPM / Yarn / Pnpm)
+# ==========================================
+node_modules/
+/logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+
+# ==========================================
+# Môi trường & Bảo mật (CỰC KỲ QUAN TRỌNG)
+# ==========================================
+# Tuyệt đối không đẩy file chứa thông tin bảo mật (Supabase Keys, Database URL) lên Git
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.*
+
+
+# ==========================================
+# Prisma
+# ==========================================
+# Nếu bạn sử dụng SQLite để test local thì chặn file db này
+/prisma/*.db
+/prisma/*.db-journal
+
+
+# ==========================================
+# Supabase
+# ==========================================
+# Bỏ qua thư mục lưu dữ liệu local của Supabase CLI và các file cấu hình nội bộ
+.supabase/
+supabase/.temp/
+supabase/functions/.env
+
+
+# ==========================================
+# Flutter / Dart / Pub
+# ==========================================
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Flutter liên quan đến iOS / Android Studio
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.swiftpm/
+/android/app/debug
+/android/app/release
+/android/app/profile
+
+# Ký tự và Obfuscation (Mã hóa code)
+app.*.symbols
+app.*.map.json
