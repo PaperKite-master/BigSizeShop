@@ -3,8 +3,15 @@ function registerDto(payload = {}) {
     fullName: String(payload.fullName || '').trim(),
     email: String(payload.email || '').trim().toLowerCase(),
     password: String(payload.password || ''),
-    phone: String(payload.phone || '').trim(),
+    phone: String(payload.phone || '').trim() || null,
   };
 }
 
-module.exports = { registerDto };
+function loginDto(payload = {}) {
+  return {
+    email: String(payload.email || '').trim().toLowerCase(),
+    password: String(payload.password || ''),
+  };
+}
+
+module.exports = { registerDto, loginDto };

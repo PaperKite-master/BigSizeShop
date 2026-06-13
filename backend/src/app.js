@@ -7,6 +7,8 @@ const swaggerUi = require('swagger-ui-express');
 const { errorHandler } = require('./common/middleware/error-handler');
 const { swaggerSpec } = require('./common/config/swagger');
 const authRoutes = require('./modules/auth/routes/auth.routes');
+const categoryRoutes = require('./modules/category/routes/category.routes');
+const productRoutes = require('./modules/product/routes/product.routes');
 
 const app = express();
 
@@ -37,6 +39,8 @@ app.get('/api-docs.json', (req, res) => {
 });
 
 app.use('/auth', authRoutes);
+app.use('/categories', categoryRoutes);
+app.use('/products', productRoutes);
 
 app.use(errorHandler);
 

@@ -60,23 +60,225 @@ const swaggerSpec = {
               },
             },
           },
-          400: {
-            description: 'Missing required fields',
+          400: { description: 'Missing required fields', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+          409: { description: 'Email already exists', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+        },
+      },
+    },
+    '/auth/login': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Login and receive JWT',
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/LoginRequest' },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Login successful',
             content: {
               'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
+                schema: { $ref: '#/components/schemas/LoginResponse' },
               },
             },
           },
-          409: {
-            description: 'Email already exists',
+          401: { description: 'Invalid credentials', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+        },
+      },
+    },
+    '/auth/me': {
+      get: {
+        tags: ['Auth'],
+        summary: 'Get current user profile',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'User profile',
             content: {
               'application/json': {
-                schema: { $ref: '#/components/schemas/ErrorResponse' },
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    data: { $ref: '#/components/schemas/User' },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: 'Unauthorized', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+        },
+      },
+    },
+    '/auth/logout': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Logout current user',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Logged out',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: { message: { type: 'string', example: 'Logged out successfully' } },
+                },
               },
             },
           },
         },
+      },
+    },
+    '/categories': {
+      get: {
+        tags: ['Categories'],
+        summary: 'List all categories',
+        responses: {
+          200: {
+            description: 'Category list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    data: { type: 'array', items: { $ref: '#/components/schemas/Category' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Categories'],
+        summary: 'Create category (admin)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: { name: { type: 'string', example: 'Shirt' } },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Category created' },
+          403: { description: 'Forbidden' },
+        },
+      },
+    },
+    '/categories/{id}': {
+      put: {
+        tags: ['Categories'],
+        summary: 'Update category (admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: { name: { type: 'string' } },
+              },
+            },
+          },
+        },
+        responses: { 200: { description: 'Category updated' }, 404: { description: 'Not found' } },
+      },
+      delete: {
+        tags: ['Categories'],
+        summary: 'Delete category (admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Category deleted' }, 404: { description: 'Not found' } },
+      },
+    },
+    '/products': {
+      get: {
+        tags: ['Products'],
+        summary: 'List products with pagination and filters',
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'category', in: 'query', schema: { type: 'string' }, description: 'Category name or UUID' },
+          { name: 'minPrice', in: 'query', schema: { type: 'number' } },
+          { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
+        ],
+        responses: { 200: { description: 'Product list with pagination meta' } },
+      },
+      post: {
+        tags: ['Products'],
+        summary: 'Create product (admin)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateProductRequest' },
+            },
+          },
+        },
+        responses: { 201: { description: 'Product created' } },
+      },
+    },
+    '/products/search': {
+      get: {
+        tags: ['Products'],
+        summary: 'Search products by keyword',
+        parameters: [
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'q', in: 'query', schema: { type: 'string' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
+        ],
+        responses: { 200: { description: 'Search results' } },
+      },
+    },
+    '/products/filter': {
+      get: {
+        tags: ['Products'],
+        summary: 'Filter products by category and price',
+        parameters: [
+          { name: 'category', in: 'query', schema: { type: 'string' } },
+          { name: 'minPrice', in: 'query', schema: { type: 'number' } },
+          { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
+        ],
+        responses: { 200: { description: 'Filtered results' } },
+      },
+    },
+    '/products/{id}': {
+      get: {
+        tags: ['Products'],
+        summary: 'Get product by ID',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Product detail' }, 404: { description: 'Not found' } },
+      },
+      put: {
+        tags: ['Products'],
+        summary: 'Update product (admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Product updated' } },
+      },
+      delete: {
+        tags: ['Products'],
+        summary: 'Delete product (admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Product deleted' } },
       },
     },
   },
@@ -111,6 +313,62 @@ const swaggerSpec = {
         properties: {
           message: { type: 'string', example: 'Registered successfully' },
           data: { $ref: '#/components/schemas/User' },
+        },
+      },
+      LoginRequest: {
+        type: 'object',
+        required: ['email', 'password'],
+        properties: {
+          email: { type: 'string', format: 'email', example: 'user@example.com' },
+          password: { type: 'string', format: 'password', example: 'secret123' },
+        },
+      },
+      LoginResponse: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: 'Logged in successfully' },
+          data: {
+            type: 'object',
+            properties: {
+              token: { type: 'string' },
+              user: { $ref: '#/components/schemas/User' },
+            },
+          },
+        },
+      },
+      CreateProductRequest: {
+        type: 'object',
+        required: ['name', 'price'],
+        properties: {
+          categoryId: { type: 'string', format: 'uuid' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          price: { type: 'number' },
+          stock: { type: 'integer' },
+          imageUrl: { type: 'string' },
+          images: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                image_url: { type: 'string' },
+                is_thumbnail: { type: 'boolean' },
+              },
+            },
+          },
+          variants: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                variant_name: { type: 'string' },
+                sku: { type: 'string' },
+                price: { type: 'number' },
+                stock: { type: 'integer' },
+                image_url: { type: 'string' },
+              },
+            },
+          },
         },
       },
       User: {
