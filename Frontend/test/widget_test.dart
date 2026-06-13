@@ -9,6 +9,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('BigSize Shop'), findsOneWidget);
-    expect(find.text('E-commerce architecture scaffold'), findsOneWidget);
+    expect(find.text('Big size fashion, delivered.'), findsOneWidget);
   });
 }
