@@ -29,7 +29,7 @@ flowchart LR
     Storage -->|Bearer token| Dio
     Express --> Prisma --> PG
 ```
-
+![](diagram.drawio.png)
 **Important:** Your app does **not** use Supabase Auth or Supabase REST for business APIs.  
 - **Backend** talks to Supabase **only as a PostgreSQL database** via Prisma.  
 - **Flutter** talks to your **Express backend** via Dio HTTP.
