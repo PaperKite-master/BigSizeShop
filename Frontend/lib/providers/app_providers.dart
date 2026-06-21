@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:dio/dio.dart';
 
 import '../core/network/api_client.dart';
 import '../core/storage/secure_storage_service.dart';
@@ -7,9 +8,14 @@ import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/category_service.dart';
 import '../services/product_service.dart';
+import '../services/mock_auth_service.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>(
   (ref) => const SecureStorageService(FlutterSecureStorage()),
+);
+
+final dioProvider = Provider<Dio>(
+  (ref) => Dio(),
 );
 
 final apiClientProvider = Provider<ApiClient>((ref) {
@@ -18,6 +24,10 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 final authServiceProvider = Provider<AuthService>(
   (ref) => AuthService(ref.watch(apiClientProvider)),
+);
+
+final mockAuthServiceProvider = Provider<MockAuthService>(
+  (ref) => MockAuthService(dio: ref.watch(dioProvider)),
 );
 
 final categoryServiceProvider = Provider<CategoryService>(

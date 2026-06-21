@@ -27,6 +27,56 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _submitMockLogin() async {
+    // Kiểm tra email và password
+    if (_emailController.text.trim().isEmpty) {
+      AppSnackBar.showError(context, 'Please enter email');
+      return;
+    }
+    
+    if (_passwordController.text.isEmpty) {
+      AppSnackBar.showError(context, 'Please enter password');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      // Gọi Mock API từ provider
+      final mockAuthService = ref.read(mockAuthServiceProvider);
+      final session = await mockAuthService.loginMock(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      // Lưu token vào secure storage
+      final storage = ref.read(secureStorageProvider);
+      await storage.saveToken(session.token);
+
+      // Update auth state - cập nhật user info directly
+      ref.read(authControllerProvider.notifier).state =
+          AsyncValue.data(session.user);
+
+      AppSnackBar.showSuccess(context, 'Welcome to Mock API!');
+      context.go('/');
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      final message =
+          e is ApiException ? e.message : 'Mock login failed: ${e.toString()}';
+      AppSnackBar.showError(context, message);
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -133,6 +183,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Text('Login'),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton(
+                    onPressed: _isSubmitting ? null : _submitMockLogin,
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Login with Mock API'),
                   ),
                   const SizedBox(height: 12),
                   TextButton(
