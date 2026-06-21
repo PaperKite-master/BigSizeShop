@@ -1,16 +1,31 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../core/network/api_client.dart';
 import '../core/storage/secure_storage_service.dart';
+import '../core/storage/sqlite_service.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/category_service.dart';
+import '../services/local_product_repository.dart';
 import '../services/product_service.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>(
   (ref) => const SecureStorageService(FlutterSecureStorage()),
 );
+
+final sqliteServiceProvider = Provider<SqliteService>((ref) {
+  final service = SqliteService();
+  ref.onDispose(() {
+    service.close();
+  });
+  return service;
+});
+
+final localProductRepositoryProvider = Provider<LocalProductRepository>((ref) {
+  return LocalProductRepository(ref.watch(sqliteServiceProvider));
+});
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   return ApiClient(ref.watch(secureStorageProvider));
@@ -25,7 +40,10 @@ final categoryServiceProvider = Provider<CategoryService>(
 );
 
 final productServiceProvider = Provider<ProductService>(
-  (ref) => ProductService(ref.watch(apiClientProvider)),
+  (ref) => ProductService(
+    ref.watch(apiClientProvider),
+    ref.watch(localProductRepositoryProvider),
+  ),
 );
 
 final authControllerProvider =
