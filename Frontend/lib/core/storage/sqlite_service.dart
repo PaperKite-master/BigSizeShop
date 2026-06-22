@@ -27,6 +27,10 @@ class SqliteService {
       pathStr = join(dbPath, 'big_size_shop.db');
     }
 
+    debugPrint('=== ĐƯỜNG DẪN CƠ SỞ DỮ LIỆU SQLITE (DATABASE PATH) ===');
+    debugPrint(pathStr);
+    debugPrint('=====================================================');
+
     final db = await openDatabase(
       pathStr,
       version: 1,
@@ -41,6 +45,43 @@ class SqliteService {
 
   Future<void> _checkAndPopulateMockData(Database db) async {
     try {
+      // Đảm bảo các bảng bổ sung tồn tại
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS categories (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          createdAt TEXT
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+          id TEXT PRIMARY KEY,
+          fullName TEXT NOT NULL,
+          email TEXT NOT NULL UNIQUE,
+          password TEXT NOT NULL,
+          phone TEXT,
+          avatar TEXT,
+          role TEXT NOT NULL DEFAULT 'USER',
+          createdAt TEXT
+        )
+      ''');
+
+      // Nạp dữ liệu danh mục mẫu
+      final List<Map<String, dynamic>> catCountResult =
+          await db.rawQuery('SELECT COUNT(*) as count FROM categories');
+      final int catCount = catCountResult.first['count'] as int? ?? 0;
+
+      if (catCount == 0) {
+        final batch = db.batch();
+        for (final category in SqliteMockData.mockCategories) {
+          batch.insert('categories', category);
+        }
+        await batch.commit(noResult: true);
+        debugPrint('SQLite: Category mock data populated successfully.');
+      }
+
+      // Nạp dữ liệu sản phẩm mẫu
       final List<Map<String, dynamic>> countResult =
           await db.rawQuery('SELECT COUNT(*) as count FROM products');
       final int count = countResult.first['count'] as int? ?? 0;
@@ -51,7 +92,21 @@ class SqliteService {
           batch.insert('products', product);
         }
         await batch.commit(noResult: true);
-        debugPrint('SQLite: Mock data populated successfully.');
+        debugPrint('SQLite: Product mock data populated successfully.');
+      }
+
+      // Nạp dữ liệu người dùng mẫu
+      final List<Map<String, dynamic>> userCountResult =
+          await db.rawQuery('SELECT COUNT(*) as count FROM users');
+      final int userCount = userCountResult.first['count'] as int? ?? 0;
+
+      if (userCount == 0) {
+        final batch = db.batch();
+        for (final user in SqliteMockData.mockUsers) {
+          batch.insert('users', user);
+        }
+        await batch.commit(noResult: true);
+        debugPrint('SQLite: User mock data populated successfully.');
       }
     } catch (e) {
       debugPrint('SQLite Error populating mock data: $e');
@@ -59,6 +114,29 @@ class SqliteService {
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    // Tạo bảng categories
+    await db.execute('''
+      CREATE TABLE categories (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        createdAt TEXT
+      )
+    ''');
+
+    // Tạo bảng users
+    await db.execute('''
+      CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        fullName TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        phone TEXT,
+        avatar TEXT,
+        role TEXT NOT NULL DEFAULT 'USER',
+        createdAt TEXT
+      )
+    ''');
+
     // Create products cache table
     await db.execute('''
       CREATE TABLE products (

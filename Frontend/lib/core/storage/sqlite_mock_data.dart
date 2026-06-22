@@ -53,4 +53,34 @@ class SqliteMockData {
       'variants_json': '[{"id":"var-4-1","variant_name":"L (70-85kg)","price":220000.0,"stock":10},{"id":"var-4-2","variant_name":"XL (85-100kg)","price":230000.0,"stock":15}]',
     }
   ];
+
+  static const List<Map<String, dynamic>> mockCategories = [
+    {'id': 'cat-1', 'name': 'Áo Thun', 'createdAt': '2026-06-22T00:00:00.000Z'},
+    {'id': 'cat-2', 'name': 'Quần Jeans', 'createdAt': '2026-06-22T00:00:00.000Z'},
+    {'id': 'cat-3', 'name': 'Áo Khoác', 'createdAt': '2026-06-22T00:00:00.000Z'},
+    {'id': 'cat-4', 'name': 'Đầm Váy', 'createdAt': '2026-06-22T00:00:00.000Z'},
+  ];
+
+  static const List<Map<String, dynamic>> mockUsers = [
+    {
+      'id': 'mock-user-admin',
+      'fullName': 'Nguyễn Văn Admin',
+      'email': 'admin@bigsizeshop.com',
+      'password': 'password123',
+      'phone': '0987654321',
+      'avatar': 'https://picsum.photos/150/150?random=10',
+      'role': 'ADMIN',
+      'createdAt': '2026-06-22T00:00:00.000Z',
+    },
+    {
+      'id': 'mock-user-customer',
+      'fullName': 'Trần Thị Khách',
+      'email': 'user@bigsizeshop.com',
+      'password': 'password123',
+      'phone': '0123456789',
+      'avatar': 'https://picsum.photos/150/150?random=11',
+      'role': 'USER',
+      'createdAt': '2026-06-22T00:00:00.000Z',
+    },
+  ];
 }

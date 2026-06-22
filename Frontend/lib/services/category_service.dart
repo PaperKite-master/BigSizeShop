@@ -1,39 +1,65 @@
-import '../core/network/api_client.dart';
+import '../core/storage/sqlite_service.dart';
 import '../models/category_model.dart';
 
 class CategoryService {
-  const CategoryService(this._client);
+  const CategoryService(this._sqliteService);
 
-  final ApiClient _client;
+  final SqliteService _sqliteService;
 
   Future<List<CategoryModel>> list() async {
-    final response = await _client.get<Map<String, dynamic>>('/categories');
-    final data = response.data!['data'] as List<dynamic>;
-
-    return data
-        .map((item) => CategoryModel.fromJson(item as Map<String, dynamic>))
-        .toList();
+    try {
+      final db = await _sqliteService.database;
+      final List<Map<String, dynamic>> maps = await db.query('categories');
+      return maps.map((map) {
+        return CategoryModel(
+          id: map['id'] as String,
+          name: map['name'] as String,
+          createdAt: map['createdAt'] != null
+              ? DateTime.tryParse(map['createdAt'] as String)
+              : null,
+        );
+      }).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Future<CategoryModel> create(String name) async {
-    final response = await _client.post<Map<String, dynamic>>(
-      '/categories',
-      data: {'name': name},
+    final db = await _sqliteService.database;
+    final newCategory = {
+      'id': 'cat-${DateTime.now().millisecondsSinceEpoch}',
+      'name': name,
+      'createdAt': DateTime.now().toIso8601String(),
+    };
+    await db.insert('categories', newCategory);
+    return CategoryModel(
+      id: newCategory['id']!,
+      name: newCategory['name']!,
+      createdAt: DateTime.parse(newCategory['createdAt']!),
     );
-
-    return CategoryModel.fromJson(response.data!['data'] as Map<String, dynamic>);
   }
 
   Future<CategoryModel> update(String id, String name) async {
-    final response = await _client.put<Map<String, dynamic>>(
-      '/categories/$id',
-      data: {'name': name},
+    final db = await _sqliteService.database;
+    await db.update(
+      'categories',
+      {'name': name},
+      where: 'id = ?',
+      whereArgs: [id],
     );
-
-    return CategoryModel.fromJson(response.data!['data'] as Map<String, dynamic>);
+    return CategoryModel(
+      id: id,
+      name: name,
+      createdAt: DateTime.now(),
+    );
   }
 
   Future<void> delete(String id) async {
-    await _client.delete<Map<String, dynamic>>('/categories/$id');
+    final db = await _sqliteService.database;
+    await db.delete(
+      'categories',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

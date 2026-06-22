@@ -1,4 +1,5 @@
-import '../core/network/api_client.dart';
+import 'dart:convert';
+import '../core/storage/sqlite_service.dart';
 import '../models/product_model.dart';
 import 'local_product_repository.dart';
 
@@ -50,121 +51,111 @@ class ProductQuery {
 }
 
 class ProductService {
-  const ProductService(this._client, this._localProductRepository);
+  const ProductService(this._sqliteService, this._localProductRepository);
 
-  final ApiClient _client;
+  final SqliteService _sqliteService;
   final LocalProductRepository _localProductRepository;
 
   Future<ProductListResult> list(ProductQuery query) async {
-    try {
-      final result = await _fetchProducts('/products', query);
-      // Cache products if it is the first page of default list (no search, no category filter)
-      if (query.page == 1 &&
-          (query.search == null || query.search!.isEmpty) &&
-          (query.category == null || query.category!.isEmpty)) {
-        await _localProductRepository.saveProductsToCache(result.items);
-      }
-      return result;
-    } catch (e) {
-      final fallbackResult = await _getOfflineProducts(query);
-      if (fallbackResult != null) {
-        return fallbackResult;
-      }
-      rethrow;
-    }
+    return _getOfflineProducts(query);
   }
 
   Future<ProductListResult> search(ProductQuery query) async {
-    try {
-      return await _fetchProducts('/products/search', query);
-    } catch (e) {
-      final fallbackResult = await _getOfflineProducts(query);
-      if (fallbackResult != null) {
-        return fallbackResult;
-      }
-      rethrow;
-    }
+    return _getOfflineProducts(query);
   }
 
   Future<ProductListResult> filter(ProductQuery query) async {
-    try {
-      return await _fetchProducts('/products/filter', query);
-    } catch (e) {
-      final fallbackResult = await _getOfflineProducts(query);
-      if (fallbackResult != null) {
-        return fallbackResult;
-      }
-      rethrow;
-    }
+    return _getOfflineProducts(query);
   }
 
   Future<ProductModel> getById(String id) async {
-    try {
-      final response = await _client.get<Map<String, dynamic>>('/products/$id');
-      return ProductModel.fromJson(response.data!['data'] as Map<String, dynamic>);
-    } catch (e) {
-      final cachedItems = await _localProductRepository.getCachedProducts();
-      final localProduct = cachedItems.firstWhere(
-        (p) => p.id == id,
-        orElse: () => throw e,
-      );
-      return localProduct;
-    }
+    final cachedItems = await _localProductRepository.getCachedProducts();
+    return cachedItems.firstWhere(
+      (p) => p.id == id,
+      orElse: () => throw Exception('Product not found'),
+    );
   }
 
   Future<ProductModel> create(Map<String, dynamic> payload) async {
-    final response = await _client.post<Map<String, dynamic>>(
-      '/products',
-      data: payload,
-    );
+    final db = await _sqliteService.database;
+    final id = 'prod-${DateTime.now().millisecondsSinceEpoch}';
 
-    return ProductModel.fromJson(response.data!['data'] as Map<String, dynamic>);
+    final String? categoryJson = payload['category'] != null
+        ? jsonEncode(payload['category'])
+        : null;
+
+    final String imagesJson = jsonEncode(payload['product_images'] ?? []);
+    final String variantsJson = jsonEncode(payload['product_variants'] ?? []);
+
+    final productRow = {
+      'id': id,
+      'categoryId': payload['categoryId'],
+      'name': payload['name'],
+      'description': payload['description'],
+      'price': (payload['price'] as num).toDouble(),
+      'stock': payload['stock'] ?? 0,
+      'imageUrl': payload['imageUrl'],
+      'isActive': (payload['is_active'] ?? true) ? 1 : 0,
+      'category_json': categoryJson,
+      'images_json': imagesJson,
+      'variants_json': variantsJson,
+    };
+
+    await db.insert('products', productRow);
+
+    final Map<String, dynamic> productJson = {
+      ...payload,
+      'id': id,
+      'is_active': (payload['is_active'] ?? true),
+      'categories': payload['category'],
+      'product_images': payload['product_images'] ?? [],
+      'product_variants': payload['product_variants'] ?? [],
+    };
+
+    return ProductModel.fromJson(productJson);
   }
 
   Future<ProductModel> update(String id, Map<String, dynamic> payload) async {
-    final response = await _client.put<Map<String, dynamic>>(
-      '/products/$id',
-      data: payload,
+    final db = await _sqliteService.database;
+
+    final productRow = {
+      if (payload.containsKey('categoryId')) 'categoryId': payload['categoryId'],
+      if (payload.containsKey('name')) 'name': payload['name'],
+      if (payload.containsKey('description')) 'description': payload['description'],
+      if (payload.containsKey('price')) 'price': (payload['price'] as num).toDouble(),
+      if (payload.containsKey('stock')) 'stock': payload['stock'],
+      if (payload.containsKey('imageUrl')) 'imageUrl': payload['imageUrl'],
+      if (payload.containsKey('is_active')) 'isActive': (payload['is_active'] ?? true) ? 1 : 0,
+      if (payload.containsKey('category')) 'category_json': jsonEncode(payload['category']),
+      if (payload.containsKey('product_images')) 'images_json': jsonEncode(payload['product_images']),
+      if (payload.containsKey('product_variants')) 'variants_json': jsonEncode(payload['product_variants']),
+    };
+
+    await db.update(
+      'products',
+      productRow,
+      where: 'id = ?',
+      whereArgs: [id],
     );
 
-    return ProductModel.fromJson(response.data!['data'] as Map<String, dynamic>);
+    final list = await _localProductRepository.getCachedProducts();
+    return list.firstWhere((p) => p.id == id);
   }
 
   Future<void> delete(String id) async {
-    await _client.delete<Map<String, dynamic>>('/products/$id');
-  }
-
-  Future<ProductListResult> _fetchProducts(
-    String path,
-    ProductQuery query,
-  ) async {
-    final response = await _client.get<Map<String, dynamic>>(
-      path,
-      queryParameters: query.toQueryParameters(),
-    );
-
-    final data = response.data!['data'] as List<dynamic>;
-    final meta = PaginationMeta.fromJson(
-      response.data!['meta'] as Map<String, dynamic>,
-    );
-
-    return ProductListResult(
-      items: data
-          .map((item) => ProductModel.fromJson(item as Map<String, dynamic>))
-          .toList(),
-      meta: meta,
+    final db = await _sqliteService.database;
+    await db.delete(
+      'products',
+      where: 'id = ?',
+      whereArgs: [id],
     );
   }
 
-  Future<ProductListResult?> _getOfflineProducts(ProductQuery query) async {
+  Future<ProductListResult> _getOfflineProducts(ProductQuery query) async {
     final cachedItems = await _localProductRepository.getCachedProducts();
-    if (cachedItems.isEmpty) {
-      return null;
-    }
-
     List<ProductModel> filtered = cachedItems;
 
-    // Search filter
+    // Lọc theo tìm kiếm
     if (query.search != null && query.search!.isNotEmpty) {
       final term = query.search!.toLowerCase();
       filtered = filtered
@@ -174,14 +165,14 @@ class ProductService {
           .toList();
     }
 
-    // Category filter
+    // Lọc theo danh mục
     if (query.category != null && query.category!.isNotEmpty) {
       filtered = filtered
           .where((p) => p.categoryId == query.category || p.category?.name == query.category)
           .toList();
     }
 
-    // Price filters
+    // Lọc theo giá
     if (query.minPrice != null) {
       filtered = filtered.where((p) => p.price >= query.minPrice!).toList();
     }

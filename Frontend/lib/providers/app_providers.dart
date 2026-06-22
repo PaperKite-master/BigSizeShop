@@ -32,16 +32,19 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 });
 
 final authServiceProvider = Provider<AuthService>(
-  (ref) => AuthService(ref.watch(apiClientProvider)),
+  (ref) => AuthService(
+    ref.watch(sqliteServiceProvider),
+    ref.watch(secureStorageProvider),
+  ),
 );
 
 final categoryServiceProvider = Provider<CategoryService>(
-  (ref) => CategoryService(ref.watch(apiClientProvider)),
+  (ref) => CategoryService(ref.watch(sqliteServiceProvider)),
 );
 
 final productServiceProvider = Provider<ProductService>(
   (ref) => ProductService(
-    ref.watch(apiClientProvider),
+    ref.watch(sqliteServiceProvider),
     ref.watch(localProductRepositoryProvider),
   ),
 );
