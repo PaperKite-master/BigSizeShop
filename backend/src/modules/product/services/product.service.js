@@ -7,10 +7,12 @@ const {
   updateProductDto,
 } = require('../dto/product.dto');
 
+
 async function list(query) {
   const filters = listProductsQueryDto(query);
   return productRepository.findMany(filters);
 }
+
 
 async function search(query) {
   const filters = listProductsQueryDto({
@@ -19,16 +21,41 @@ async function search(query) {
   });
 
   if (!filters.search) {
-    throw new AppError('Search query is required', 400);
+    throw new AppError('Search query (search or q) is required', 400);
+  }
+
+  try {
+    return await productRepository.findManyByFullText(filters.search, filters);
+  } catch (err) {
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[search] FTS failed, falling back to ILIKE:', err.message);
+    }
+    return productRepository.findMany(filters);
+  }
+}
+
+
+async function filter(query) {
+  const filters = listProductsQueryDto(query);
+
+  const needsRawQuery =
+    filters.minRating !== undefined || filters.maxRating !== undefined;
+
+  if (needsRawQuery) {
+    try {
+      return await productRepository.findManyByFullText('', filters);
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[filter] Raw query failed, falling back to ORM path:', err.message);
+      }
+      return productRepository.findMany(filters);
+    }
   }
 
   return productRepository.findMany(filters);
 }
 
-async function filter(query) {
-  const filters = listProductsQueryDto(query);
-  return productRepository.findMany(filters);
-}
 
 async function getById(id) {
   const product = await productRepository.findById(id);
@@ -39,6 +66,8 @@ async function getById(id) {
 
   return product;
 }
+
+// ─── MUTATIONS ─────────────────────────────────────────────────────────────────
 
 async function create(payload) {
   const data = createProductDto(payload);
@@ -104,6 +133,7 @@ async function remove(id) {
 
   return productRepository.remove(id);
 }
+
 
 module.exports = {
   list,
