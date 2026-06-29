@@ -9,6 +9,8 @@ const { swaggerSpec } = require('./common/config/swagger');
 const authRoutes = require('./modules/auth/routes/auth.routes');
 const categoryRoutes = require('./modules/category/routes/category.routes');
 const productRoutes = require('./modules/product/routes/product.routes');
+const cartRoutes = require('./modules/cart/routes/cart.routes');
+const orderRoutes = require('./modules/order/routes/order.routes');
 
 const app = express();
 
@@ -41,6 +43,8 @@ app.get('/api-docs.json', (req, res) => {
 app.use('/auth', authRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
+app.use('/cart', cartRoutes);
+app.use('/orders', orderRoutes);
 
 app.use(errorHandler);
 
