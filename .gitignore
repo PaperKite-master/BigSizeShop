@@ -1,6 +1,6 @@
-# ==========================================
-# Hệ điều hành & Công cụ phát triển chung (OS & IDEs)
-# ==========================================
+# ==============================================================================
+# 1. HỆ ĐIỀU HÀNH & IDES CHUNG (Áp dụng toàn dự án)
+# ==============================================================================
 # Hệ điều hành
 .DS_Store
 .DS_Store?
@@ -8,14 +8,13 @@
 Thumbs.db
 Desktop.ini
 
-# IntelliJ (Android Studio, WebStorm, v.v.)
+# IntelliJ / Android Studio / WebStorm
 *.iml
 *.ipr
 *.iws
 .idea/
 
-# Visual Studio Code
-# Mở khóa nếu bạn không muốn chia sẻ cấu hình chạy (launch configurations) cá nhân
+# Visual Studio Code (Đã bỏ chặn để tránh đẩy cấu hình cá nhân lên Git)
 .vscode/
 
 # Các file rác/Log khác
@@ -31,23 +30,58 @@ Desktop.ini
 migrate_working_dir/
 
 
-# ==========================================
-# Node.js & Quản lý thư viện (NPM / Yarn / Pnpm)
-# ==========================================
-node_modules/
-/logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.pnpm-debug.log*
+# ==============================================================================
+# 2. FRONTEND (FLUTTER) - Nằm trong thư mục Frontend/
+# ==============================================================================
+# QUAN TRỌNG: Sửa triệt để lỗi không nhận file build của Flutter
+Frontend/build/
+
+# Các file cấu hình và bộ nhớ đệm của Dart/Flutter
+Frontend/.dart_tool/
+Frontend/.flutter-plugins
+Frontend/.flutter-plugins-dependencies
+Frontend/.pub-cache/
+Frontend/.pub/
+Frontend/coverage/
+
+# Flutter liên quan đến iOS / Android Studio
+Frontend/doc/api/
+Frontend/ios/Flutter/.last_build_id
+Frontend/.swiftpm/
+Frontend/android/app/debug
+Frontend/android/app/release
+Frontend/android/app/profile
+
+# Ký tự và Obfuscation (Mã hóa code)
+Frontend/app.*.symbols
+Frontend/app.*.map.json
 
 
-# ==========================================
-# Môi trường & Bảo mật (CỰC KỲ QUAN TRỌNG)
-# ==========================================
-# Tuyệt đối không đẩy file chứa thông tin bảo mật (Supabase Keys, Database URL) lên Git
+# ==============================================================================
+# 3. BACKEND (NODE.JS) - Nằm trong thư mục backend/
+# ==============================================================================
+# Thư mục cài đặt thư viện Node.js
+backend/node_modules/
+
+# File log và cấu hình của npm/yarn/pnpm
+backend/logs/
+backend/npm-debug.log*
+backend/yarn-debug.log*
+backend/yarn-error.log*
+backend/pnpm-debug.log*
+backend/.pnpm-debug.log*
+
+# Prisma & Supabase (Nằm bên trong backend/)
+backend/prisma/*.db
+backend/prisma/*.db-journal
+backend/.supabase/
+backend/supabase/.temp/
+backend/supabase/functions/.env
+
+
+# ==============================================================================
+# 4. MÔI TRƯỜNG & BẢO MẬT (Chặn tất cả các file .env ở mọi cấp)
+# ==============================================================================
 .env
 .env.local
 .env.development.local
@@ -55,44 +89,5 @@ pnpm-debug.log*
 .env.production.local
 *.env
 *.env.*
-
-
-# ==========================================
-# Prisma
-# ==========================================
-# Nếu bạn sử dụng SQLite để test local thì chặn file db này
-/prisma/*.db
-/prisma/*.db-journal
-
-
-# ==========================================
-# Supabase
-# ==========================================
-# Bỏ qua thư mục lưu dữ liệu local của Supabase CLI và các file cấu hình nội bộ
-.supabase/
-supabase/.temp/
-supabase/functions/.env
-
-
-# ==========================================
-# Flutter / Dart / Pub
-# ==========================================
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
-
-# Flutter liên quan đến iOS / Android Studio
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.swiftpm/
-/android/app/debug
-/android/app/release
-/android/app/profile
-
-# Ký tự và Obfuscation (Mã hóa code)
-app.*.symbols
-app.*.map.json
+**/backend/.env
+**/Frontend/.env
