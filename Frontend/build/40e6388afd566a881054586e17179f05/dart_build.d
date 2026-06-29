@@ -1,1 +1,0 @@
- D:\\BigSizeShop\\Frontend\\build\\40e6388afd566a881054586e17179f05\\dart_build_result.json:  D:\\BigSizeShop\\Frontend\\.dart_tool\\package_config.json D:\\BigSizeShop\\Frontend\\pubspec.yaml D:\\flutter\\bin\\cache\\dart-sdk\\version d:\\bigsizeshop\\frontend\\.dart_tool\\package_config.json
