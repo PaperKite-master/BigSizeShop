@@ -18,7 +18,7 @@ class CartService {
     String? variantId,
   }) async {
     final response = await _client.post<Map<String, dynamic>>(
-      '/cart/add',
+      '/cart',
       data: {
         'productId': productId,
         'quantity': quantity,
@@ -33,7 +33,7 @@ class CartService {
     required int quantity,
   }) async {
     final response = await _client.put<Map<String, dynamic>>(
-      '/cart/items/$cartItemId',
+      '/cart/$cartItemId',
       data: {
         'quantity': quantity,
       },
@@ -42,6 +42,6 @@ class CartService {
   }
 
   Future<void> removeFromCart(String cartItemId) async {
-    await _client.delete<Map<String, dynamic>>('/cart/items/$cartItemId');
+    await _client.delete<Map<String, dynamic>>('/cart/$cartItemId');
   }
 }
