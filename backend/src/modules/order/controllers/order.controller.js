@@ -19,7 +19,17 @@ const cancelOrder = asyncHandler(async (req, res) => {
   });
 });
 
+const getUserOrders = asyncHandler(async (req, res) => {
+  const result = await orderService.getUserOrders(req.user.id);
+
+  res.json({
+    message: 'User orders retrieved successfully',
+    data: result,
+  });
+});
+
 module.exports = {
   createOrder,
   cancelOrder,
+  getUserOrders
 };

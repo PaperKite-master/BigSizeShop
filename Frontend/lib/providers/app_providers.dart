@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../core/network/api_client.dart';
 import '../core/storage/secure_storage_service.dart';
@@ -54,6 +56,7 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
 
       final user = await _authService.me();
       state = AsyncValue.data(user);
+      _syncFcmToken();
     } catch (_) {
       await _storage.deleteToken();
       state = const AsyncValue.data(null);
@@ -69,8 +72,21 @@ class AuthController extends StateNotifier<AsyncValue<UserModel?>> {
     state = await AsyncValue.guard(() async {
       final session = await _authService.login(email: email, password: password);
       await _storage.saveToken(session.token);
+      _syncFcmToken();
       return session.user;
     });
+  }
+
+  Future<void> _syncFcmToken() async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await _authService.saveFcmToken(token);
+        debugPrint("FCM Token successfully synced to API: $token");
+      }
+    } catch (e) {
+      debugPrint("Failed to sync FCM Token to API: $e");
+    }
   }
 
   Future<void> register({

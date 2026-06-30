@@ -55,7 +55,12 @@ async function cancelOrder(userId, orderId) {
   return orderRepository.cancelOrderAndRestoreStock(order.id, order.order_items);
 }
 
+async function getUserOrders(userId) {
+  return orderRepository.findManyByUserId(userId);
+}
+
 module.exports = {
   createOrder,
-  cancelOrder
+  cancelOrder,
+  getUserOrders
 };

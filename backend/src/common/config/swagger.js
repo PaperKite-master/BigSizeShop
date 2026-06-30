@@ -342,6 +342,30 @@ const swaggerSpec = {
       }
     },
     '/orders': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get list of orders of the logged-in user',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'List of orders retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    data: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/Order' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       post: {
         tags: ['Orders'],
         summary: 'Checkout cart and create order',
@@ -520,6 +544,7 @@ const swaggerSpec = {
           status: { type: 'string', default: 'PENDING' },
           address: { type: 'string' },
           paymentMethod: { type: 'string', nullable: true },
+          paymentStatus: { type: 'string', default: 'UNPAID', nullable: true },
           createdAt: { type: 'string', format: 'date-time', nullable: true },
           updated_at: { type: 'string', format: 'date-time', nullable: true },
         },

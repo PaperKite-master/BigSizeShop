@@ -84,6 +84,7 @@ model Order {
   status         String?          @default("PENDING") @db.VarChar(30)
   address        String
   paymentMethod  String?          @map("payment_method") @db.VarChar(50)
+  paymentStatus  String?          @default("UNPAID") @map("payment_status") @db.VarChar(30)
   createdAt      DateTime?        @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at     DateTime?        @default(now()) @db.Timestamp(6)
   order_items    OrderItem[]

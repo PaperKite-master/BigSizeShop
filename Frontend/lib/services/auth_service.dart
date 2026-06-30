@@ -53,4 +53,11 @@ class AuthService {
   Future<void> logout() async {
     await _client.post<Map<String, dynamic>>('/auth/logout');
   }
+
+  Future<void> saveFcmToken(String token) async {
+    await _client.post<Map<String, dynamic>>(
+      '/auth/fcm-token',
+      data: {'fcmToken': token},
+    );
+  }
 }

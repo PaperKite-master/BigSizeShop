@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "473909233486",
+    "project_id": "bigsize-2a220",
+    "storage_bucket": "bigsize-2a220.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:473909233486:android:3fea1fda9a48c3359b001f",
+        "android_client_info": {
+          "package_name": "com.example.big_size_shop"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDlgjRWBmx39I66FsXxiAKgc0bcyo3VxeA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

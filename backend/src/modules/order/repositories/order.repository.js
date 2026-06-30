@@ -31,6 +31,7 @@ async function createOrderFromCart(userId, orderData, cartItems, totalPrice) {
         totalPrice,
         address: orderData.address,
         paymentMethod: orderData.paymentMethod,
+        paymentStatus: 'UNPAID',
         status: 'PENDING',
         order_items: {
           create: cartItems.map(item => ({
@@ -114,9 +115,27 @@ async function cancelOrderAndRestoreStock(orderId, orderItems) {
   });
 }
 
+async function findManyByUserId(userId) {
+  return prisma.order.findMany({
+    where: { userId },
+    include: {
+      order_items: {
+        include: {
+          products: true,
+          product_variants: true,
+        }
+      }
+    },
+    orderBy: {
+      createdAt: 'desc'
+    }
+  });
+}
+
 module.exports = {
   findByIdAndUserId,
   updateStatus,
   createOrderFromCart,
-  cancelOrderAndRestoreStock
+  cancelOrderAndRestoreStock,
+  findManyByUserId
 };
