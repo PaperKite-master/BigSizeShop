@@ -11,7 +11,6 @@ class CartService {
     final list = response.data!['data'] as List<dynamic>;
     return list.map((item) => CartItemModel.fromJson(item as Map<String, dynamic>)).toList();
   }
-
   Future<CartItemModel> addToCart({
     required String productId,
     required int quantity,
