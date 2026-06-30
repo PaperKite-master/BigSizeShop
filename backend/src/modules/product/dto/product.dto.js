@@ -1,6 +1,5 @@
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-
 function parseNumber(value) {
   if (value === undefined || value === null || value === '') {
     return undefined;
@@ -10,62 +9,17 @@ function parseNumber(value) {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-
-function parseSortOrder(value) {
-  if (typeof value === 'string' && value.toLowerCase() === 'desc') return 'desc';
-  return 'asc';
-}
-
-const ALLOWED_SORT_FIELDS = ['name', 'price', 'createdAt', 'stock', 'rating'];
-
-
 function listProductsQueryDto(query = {}) {
   const page = Math.max(1, parseInt(query.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 10));
 
-  const searchRaw = String(query.search || query.q || '').trim();
-  const search = searchRaw || undefined;
-
-  let categoryRaw = query.category;
-  let categories = [];
-  if (categoryRaw !== undefined) {
-    const arr = Array.isArray(categoryRaw) ? categoryRaw : [categoryRaw];
-    categories = arr
-      .flatMap((c) => String(c).split(','))
-      .map((c) => c.trim())
-      .filter(Boolean);
-  }
-  const category = categories.length === 1 ? categories[0] : categories.length > 1 ? undefined : undefined;
-
-  const minPrice = parseNumber(query.minPrice);
-  const maxPrice = parseNumber(query.maxPrice);
-
-  const minRating = parseNumber(query.minRating);
-  const maxRating = parseNumber(query.maxRating);
-
-  const inStock =
-    query.inStock === 'true' || query.inStock === '1' || query.inStock === true
-      ? true
-      : undefined;
-
-  const sortBy = ALLOWED_SORT_FIELDS.includes(query.sortBy) ? query.sortBy : 'createdAt';
-  const sortOrder = parseSortOrder(query.sortOrder);
-
   return {
     page,
     limit,
-    search,
-    // Multi-category support
-    categories: categories.length ? categories : undefined,
-    // Single-category kept for backward compat
-    category: categories.length === 1 ? categories[0] : undefined,
-    minPrice,
-    maxPrice,
-    minRating: minRating !== undefined ? Math.max(0, Math.min(5, minRating)) : undefined,
-    maxRating: maxRating !== undefined ? Math.max(0, Math.min(5, maxRating)) : undefined,
-    inStock,
-    sortBy,
-    sortOrder,
+    search: String(query.search || query.q || '').trim() || undefined,
+    category: String(query.category || '').trim() || undefined,
+    minPrice: parseNumber(query.minPrice),
+    maxPrice: parseNumber(query.maxPrice),
   };
 }
 
@@ -135,5 +89,4 @@ module.exports = {
   createProductDto,
   updateProductDto,
   isUuid,
-  ALLOWED_SORT_FIELDS,
 };

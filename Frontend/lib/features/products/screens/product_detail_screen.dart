@@ -476,17 +476,51 @@ Container(
               if (!mounted) return;
               ref.invalidate(cartControllerProvider); 
 
-              // Bật Panel thông báo thành công chuẩn 60fps
-              Future.microtask(() {
-                if (!mounted) return;
-                showDialog(
-                  context: context,
-                  barrierDismissible: true,
-                  builder: (BuildContext context) => Dialog(
-                    // ... Giữ nguyên cấu trúc vẽ Dialog Canvas cũ của bạn ...
+              showDialog(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  backgroundColor: const Color(0xFF0F1E36), // vgMidnight
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: const BorderSide(color: Color(0xFFF3C63F), width: 1.5), // vgStarGold
                   ),
-                );
-              });
+                  title: Row(
+                    children: const [
+                      Icon(Icons.check_circle_outline, color: Color(0xFFF3C63F), size: 28),
+                      SizedBox(width: 12),
+                      Text(
+                        'Thành công',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'serif',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: const Text(
+                    'Đã thêm sản phẩm vào giỏ hàng!',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      height: 1.5,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: const Text(
+                        'ĐÓNG',
+                        style: TextStyle(
+                          color: Color(0xFFF3C63F),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
 
             } catch (e) {
               if (!mounted) return;

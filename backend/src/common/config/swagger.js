@@ -16,6 +16,8 @@ const swaggerSpec = {
     { name: 'Auth', description: 'Authentication and registration' },
     { name: 'Categories', description: 'Product category management' },
     { name: 'Products', description: 'Product catalog management' },
+    { name: 'Cart', description: 'Shopping cart management' },
+    { name: 'Orders', description: 'Order management and checkout' },
   ],
   paths: {
     '/health': {
@@ -206,37 +208,16 @@ const swaggerSpec = {
     '/products': {
       get: {
         tags: ['Products'],
-        summary: 'List products with dynamic filters and pagination',
-        description: 'Returns a paginated list of active products. All filter parameters are optional and can be combined freely (Dynamic Query). Supports Full-text search, category (single or multiple, by UUID or name), price range, rating range, stock availability, and custom sorting.',
+        summary: 'List products with pagination and filters',
         parameters: [
-          { name: 'page', in: 'query', description: 'Page number (≥ 1)', schema: { type: 'integer', default: 1, minimum: 1 } },
-          { name: 'limit', in: 'query', description: 'Items per page (1–100)', schema: { type: 'integer', default: 10, minimum: 1, maximum: 100 } },
-          { name: 'search', in: 'query', description: 'Full-text / LIKE search on product name and description', schema: { type: 'string', example: 'áo thun nam' } },
-          { name: 'q', in: 'query', description: 'Alias for search', schema: { type: 'string' } },
-          {
-            name: 'category', in: 'query',
-            description: 'Filter by category UUID or name. Repeat the param or use comma-separated values for OR logic across multiple categories. Example: ?category=uuid1&category=uuid2 or ?category=Áo,Quần',
-            schema: { type: 'string' },
-            example: 'Áo Thun',
-          },
-          { name: 'minPrice', in: 'query', description: 'Minimum product price (inclusive)', schema: { type: 'number', example: 100000 } },
-          { name: 'maxPrice', in: 'query', description: 'Maximum product price (inclusive)', schema: { type: 'number', example: 500000 } },
-          { name: 'minRating', in: 'query', description: 'Minimum average rating 0–5 (requires reviews table)', schema: { type: 'number', minimum: 0, maximum: 5, example: 3.5 } },
-          { name: 'maxRating', in: 'query', description: 'Maximum average rating 0–5 (requires reviews table)', schema: { type: 'number', minimum: 0, maximum: 5, example: 5 } },
-          { name: 'inStock', in: 'query', description: 'When true, only return products with stock > 0', schema: { type: 'boolean', example: true } },
-          { name: 'sortBy', in: 'query', description: 'Sort field', schema: { type: 'string', enum: ['name', 'price', 'createdAt', 'stock', 'rating'], default: 'createdAt' } },
-          { name: 'sortOrder', in: 'query', description: 'Sort direction', schema: { type: 'string', enum: ['asc', 'desc'], default: 'asc' } },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'category', in: 'query', schema: { type: 'string' }, description: 'Category name or UUID' },
+          { name: 'minPrice', in: 'query', schema: { type: 'number' } },
+          { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
         ],
-        responses: {
-          200: {
-            description: 'Paginated product list',
-            content: {
-              'application/json': {
-                schema: { $ref: '#/components/schemas/ProductListResponse' },
-              },
-            },
-          },
-        },
+        responses: { 200: { description: 'Product list with pagination meta' } },
       },
       post: {
         tags: ['Products'],
@@ -256,53 +237,28 @@ const swaggerSpec = {
     '/products/search': {
       get: {
         tags: ['Products'],
-        summary: 'Full-text search products by keyword',
-        description: 'Performs a PostgreSQL `plainto_tsquery` full-text search on product name and description. A `search` or `q` parameter is required. All dynamic filter params (category, price, rating, inStock, sort) can be combined with the keyword.',
+        summary: 'Search products by keyword',
         parameters: [
-          { name: 'search', in: 'query', required: false, description: 'Full-text search keyword (required if q is absent)', schema: { type: 'string', example: 'áo thun oversize' } },
-          { name: 'q', in: 'query', description: 'Alias for search', schema: { type: 'string' } },
+          { name: 'search', in: 'query', schema: { type: 'string' } },
+          { name: 'q', in: 'query', schema: { type: 'string' } },
           { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 100 } },
-          { name: 'category', in: 'query', description: 'Category UUID or name (comma-separated for multi)', schema: { type: 'string' } },
-          { name: 'minPrice', in: 'query', schema: { type: 'number' } },
-          { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
-          { name: 'minRating', in: 'query', schema: { type: 'number', minimum: 0, maximum: 5 } },
-          { name: 'maxRating', in: 'query', schema: { type: 'number', minimum: 0, maximum: 5 } },
-          { name: 'inStock', in: 'query', schema: { type: 'boolean' } },
-          { name: 'sortBy', in: 'query', schema: { type: 'string', enum: ['name', 'price', 'createdAt', 'stock', 'rating'], default: 'createdAt' } },
-          { name: 'sortOrder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'], default: 'asc' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
         ],
-        responses: {
-          200: { description: 'Search results', content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductListResponse' } } } },
-          400: { description: 'Missing search keyword', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
-        },
+        responses: { 200: { description: 'Search results' } },
       },
     },
     '/products/filter': {
       get: {
         tags: ['Products'],
-        summary: 'Dynamic filter – category, price, rating, stock',
-        description: 'Filter products using any combination of category (UUID or name, multi-value), price range, rating range, and stock availability. No search keyword required. When minRating or maxRating is supplied the query automatically uses a raw-SQL aggregation path.',
+        summary: 'Filter products by category and price',
         parameters: [
-          {
-            name: 'category', in: 'query',
-            description: 'Category UUID or name. Repeat or comma-separate for multiple categories (OR logic).',
-            schema: { type: 'string' },
-            example: 'Quần',
-          },
-          { name: 'minPrice', in: 'query', description: 'Min price (inclusive)', schema: { type: 'number', example: 50000 } },
-          { name: 'maxPrice', in: 'query', description: 'Max price (inclusive)', schema: { type: 'number', example: 300000 } },
-          { name: 'minRating', in: 'query', description: 'Min average rating 0–5', schema: { type: 'number', minimum: 0, maximum: 5, example: 4 } },
-          { name: 'maxRating', in: 'query', description: 'Max average rating 0–5', schema: { type: 'number', minimum: 0, maximum: 5, example: 5 } },
-          { name: 'inStock', in: 'query', description: 'Only show products in stock', schema: { type: 'boolean', example: true } },
-          { name: 'sortBy', in: 'query', schema: { type: 'string', enum: ['name', 'price', 'createdAt', 'stock', 'rating'], default: 'createdAt' } },
-          { name: 'sortOrder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'], default: 'asc' } },
+          { name: 'category', in: 'query', schema: { type: 'string' } },
+          { name: 'minPrice', in: 'query', schema: { type: 'number' } },
+          { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
           { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10, maximum: 100 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
         ],
-        responses: {
-          200: { description: 'Filtered product list', content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductListResponse' } } } },
-        },
+        responses: { 200: { description: 'Filtered results' } },
       },
     },
     '/products/{id}': {
@@ -327,6 +283,96 @@ const swaggerSpec = {
         responses: { 200: { description: 'Product deleted' } },
       },
     },
+    '/cart': {
+      get: {
+        tags: ['Cart'],
+        summary: 'Get current user cart',
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'Cart retrieved' } }
+      },
+      post: {
+        tags: ['Cart'],
+        summary: 'Add item to cart',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['productId'],
+                properties: {
+                  productId: { type: 'string', format: 'uuid' },
+                  quantity: { type: 'integer', default: 1 },
+                  variantId: { type: 'string', format: 'uuid', nullable: true }
+                }
+              }
+            }
+          }
+        },
+        responses: { 201: { description: 'Item added' } }
+      }
+    },
+    '/cart/{id}': {
+      put: {
+        tags: ['Cart'],
+        summary: 'Update item quantity',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['quantity'],
+                properties: { quantity: { type: 'integer' } }
+              }
+            }
+          }
+        },
+        responses: { 200: { description: 'Quantity updated' } }
+      },
+      delete: {
+        tags: ['Cart'],
+        summary: 'Remove item from cart',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Item removed' } }
+      }
+    },
+    '/orders': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Checkout cart and create order',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['address'],
+                properties: {
+                  address: { type: 'string' },
+                  paymentMethod: { type: 'string', default: 'COD' }
+                }
+              }
+            }
+          }
+        },
+        responses: { 201: { description: 'Order created' } }
+      }
+    },
+    '/orders/{id}/cancel': {
+      patch: {
+        tags: ['Orders'],
+        summary: 'Cancel a pending order',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Order cancelled' } }
+      }
+    }
   },
   components: {
     securitySchemes: {
@@ -450,28 +496,8 @@ const swaggerSpec = {
           stock: { type: 'integer', default: 0 },
           imageUrl: { type: 'string', nullable: true },
           is_active: { type: 'boolean', default: true },
-          avg_rating: { type: 'number', format: 'float', nullable: true, description: 'Average product rating (0–5). Null when no reviews exist.' },
           createdAt: { type: 'string', format: 'date-time', nullable: true },
           updated_at: { type: 'string', format: 'date-time', nullable: true },
-          categories: { $ref: '#/components/schemas/Category', nullable: true },
-          product_images: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, image_url: { type: 'string' }, is_thumbnail: { type: 'boolean' } } } },
-          product_variants: { type: 'array', items: { $ref: '#/components/schemas/ProductVariant' } },
-        },
-      },
-      ProductListResponse: {
-        type: 'object',
-        properties: {
-          message: { type: 'string', example: 'Products fetched' },
-          data: { type: 'array', items: { $ref: '#/components/schemas/Product' } },
-          meta: {
-            type: 'object',
-            properties: {
-              total: { type: 'integer', description: 'Total matching records', example: 42 },
-              page: { type: 'integer', description: 'Current page', example: 1 },
-              limit: { type: 'integer', description: 'Items per page', example: 10 },
-              totalPages: { type: 'integer', description: 'Total number of pages', example: 5 },
-            },
-          },
         },
       },
       CartItem: {
