@@ -16,6 +16,8 @@ const swaggerSpec = {
     { name: 'Auth', description: 'Authentication and registration' },
     { name: 'Categories', description: 'Product category management' },
     { name: 'Products', description: 'Product catalog management' },
+    { name: 'Cart', description: 'Shopping cart management' },
+    { name: 'Orders', description: 'Order management and checkout' },
   ],
   paths: {
     '/health': {
@@ -327,6 +329,96 @@ const swaggerSpec = {
         responses: { 200: { description: 'Product deleted' } },
       },
     },
+    '/cart': {
+      get: {
+        tags: ['Cart'],
+        summary: 'Get current user cart',
+        security: [{ bearerAuth: [] }],
+        responses: { 200: { description: 'Cart retrieved' } }
+      },
+      post: {
+        tags: ['Cart'],
+        summary: 'Add item to cart',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['productId'],
+                properties: {
+                  productId: { type: 'string', format: 'uuid' },
+                  quantity: { type: 'integer', default: 1 },
+                  variantId: { type: 'string', format: 'uuid', nullable: true }
+                }
+              }
+            }
+          }
+        },
+        responses: { 201: { description: 'Item added' } }
+      }
+    },
+    '/cart/{id}': {
+      put: {
+        tags: ['Cart'],
+        summary: 'Update item quantity',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['quantity'],
+                properties: { quantity: { type: 'integer' } }
+              }
+            }
+          }
+        },
+        responses: { 200: { description: 'Quantity updated' } }
+      },
+      delete: {
+        tags: ['Cart'],
+        summary: 'Remove item from cart',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Item removed' } }
+      }
+    },
+    '/orders': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Checkout cart and create order',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['address'],
+                properties: {
+                  address: { type: 'string' },
+                  paymentMethod: { type: 'string', default: 'COD' }
+                }
+              }
+            }
+          }
+        },
+        responses: { 201: { description: 'Order created' } }
+      }
+    },
+    '/orders/{id}/cancel': {
+      patch: {
+        tags: ['Orders'],
+        summary: 'Cancel a pending order',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: { 200: { description: 'Order cancelled' } }
+      }
+    }
   },
   components: {
     securitySchemes: {
