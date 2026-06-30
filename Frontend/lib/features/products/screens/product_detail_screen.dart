@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/app_widgets.dart';
+import '../../../providers/app_providers.dart';
 import '../../../providers/catalog_providers.dart';
+import '../../../providers/cart_providers.dart';
 
 // Hàm định dạng tiền tệ nội bộ an toàn
 String _localFormatCurrency(dynamic price) {
@@ -30,6 +32,7 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late List<StarParticle> _stars;
+  String? _selectedVariantId;
 
   // 🎨 Bộ palette màu cốt lõi hội họa Van Gogh
   final Color vgMidnight = const Color(0xFF0F1E36);
@@ -147,6 +150,62 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                   icon: Icon(Icons.arrow_back, color: vgMidnight),
                   onPressed: () => context.go('/'),
                 ),
+                actions: [
+                  Stack(
+    alignment: Alignment.center,
+    children: [
+      IconButton(
+        icon: Icon(Icons.shopping_cart_outlined, color: vgMidnight, size: 26),
+        onPressed: () => context.go('/cart'), // Điều hướng đến trang giỏ hàng thực tế của bạn
+      ),
+      Positioned(
+        top: 4,
+        right: 4,
+        child: Container(
+          padding: const EdgeInsets.all(4),
+          decoration: const BoxDecoration(
+            color: Color(0xFFD32F2F), // Màu đỏ thẫm cổ điển nổi bật trên nền vàng của Headbar
+            shape: BoxShape.circle,
+          ),
+          constraints: const BoxConstraints(
+            minWidth: 18,
+            minHeight: 18,
+          ),
+          child: Consumer(
+  builder: (context, ref, child) {
+    final cartState = ref.watch(cartControllerProvider);
+    
+    final int totalItems = cartState.maybeWhen(
+      data: (cartData) {
+        // ✨ ĐÃ SỬA: Vì cartData đã là List<CartItemModel>, kiểm tra rỗng trực tiếp luôn
+        if (cartData == null || cartData.isEmpty) return 0;
+        
+        // Cách 1: Nếu muốn cộng tổng số lượng (Ví dụ: 2 quần + 1 áo = 3)
+        return cartData.fold(0, (sum, item) => sum + item.quantity);
+        
+        // Cách 2: Nếu chỉ muốn đếm số dòng mặt hàng khác nhau (Ví dụ: 2 quần + 1 áo = 2 dòng)
+        // return cartData.length;
+      },
+      orElse: () => 0,
+    );
+
+    return Text(
+      '$totalItems', 
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 10,
+        fontWeight: FontWeight.bold,
+      ),
+      textAlign: TextAlign.center,
+    );
+  },
+),
+        ),
+      ),
+    ],
+  ),
+  const SizedBox(width: 16), // Khoảng cách đệm tinh tế ở rìa phải AppBar
+                ],
               ),
               body: productAsync.when(
                 loading: () => const LoadingView(),
@@ -155,7 +214,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                   onRetry: () => ref.invalidate(productDetailProvider(widget.productId)),
                 ),
                 data: (product) {
+                  if (product.variants.isNotEmpty) {
+                    _selectedVariantId ??= product.variants.first.id;
+                  }
                   final imageUrl = product.displayImage;
+
+                  bool isOutOfStock = product.stock == 0; 
+                  if (product.variants.isNotEmpty && _selectedVariantId != null) {
+                    final variant = product.variants.firstWhere(
+                      (v) => v.id == _selectedVariantId,
+                      orElse: () => product.variants.first,
+                    );
+                    isOutOfStock = variant.stock == 0;
+                  }
 
                   // --- 🖼️ COMPONENT HÌNH ẢNH ---
                   Widget productImage = imageUrl.isNotEmpty
@@ -273,33 +344,56 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                           spacing: 16,
                           runSpacing: 16,
                           children: product.variants.map((variant) {
-                            return Container(
-                              padding: const EdgeInsets.all(16),
-                              width: 280,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: vgCyanSky.withOpacity(0.15)),
-                                boxShadow: [
-                                  BoxShadow(color: vgMidnight.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    variant.variantName,
-                                    style: TextStyle(color: vgMidnight, fontWeight: FontWeight.bold, fontFamily: 'serif', fontSize: 16),
+                            final isSelected = _selectedVariantId == variant.id;
+                            return GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedVariantId = variant.id;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                width: 280,
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFFFFFDF0) : Colors.white.withOpacity(0.9),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected ? vgStarGold : vgCyanSky.withOpacity(0.15),
+                                    width: isSelected ? 3.0 : 1.0,
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    [
-                                      if (variant.price != null) _localFormatCurrency(variant.price!),
-                                      'Stock: ${variant.stock}',
-                                    ].join(' • '),
-                                    style: TextStyle(color: vgCypressGreen.withOpacity(0.8), fontSize: 14),
-                                  ),
-                                ],
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isSelected ? vgStarGold.withOpacity(0.2) : vgMidnight.withOpacity(0.08),
+                                      blurRadius: isSelected ? 8 : 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            variant.variantName,
+                                            style: TextStyle(color: vgMidnight, fontWeight: FontWeight.bold, fontFamily: 'serif', fontSize: 16),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            [
+                                              if (variant.price != null) _localFormatCurrency(variant.price!),
+                                              'Stock: ${variant.stock}',
+                                            ].join(' • '),
+                                            style: TextStyle(color: vgCypressGreen.withOpacity(0.8), fontSize: 14),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isSelected)
+                                      Icon(Icons.check_circle, color: vgStarGold, size: 24),
+                                  ],
+                                ),
                               ),
                             );
                           }).toList(),
@@ -329,6 +423,107 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                         ),
                         const SizedBox(height: 48),
                       ],
+
+Container(
+  constraints: const BoxConstraints(maxWidth: 320),
+  decoration: BoxDecoration(
+    gradient: isOutOfStock 
+        ? null // Không đổ màu hoàng hôn khi hết hàng
+        : LinearGradient(
+            colors: [
+              vgCyanSky,
+              vgMidnight.withOpacity(0.9),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+    color: isOutOfStock ? Colors.grey.withOpacity(0.3) : null, // Đổi sang nền xám mờ khi hết hàng
+    borderRadius: BorderRadius.circular(30),
+    border: Border.all(
+      color: isOutOfStock ? Colors.grey.withOpacity(0.5) : vgStarGold.withOpacity(0.8),
+      width: 1.5,
+    ),
+    boxShadow: isOutOfStock 
+        ? null // Tắt hiệu ứng phát sáng dải ngân hà khi hết hàng
+        : [
+            BoxShadow(
+              color: vgCyanSky.withOpacity(0.4),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+  ),
+  child: ElevatedButton(
+    // ✨ KHÓA CHỐT LOGIC: Nếu hết hàng (isOutOfStock = true), truyền onPressed = null. 
+    // Flutter sẽ tự động đóng băng (Disable) nút bấm ngay lập tức.
+    onPressed: isOutOfStock 
+        ? null 
+        : () async {
+            final authState = ref.read(authControllerProvider);
+            if (authState.value == null) {
+              AppSnackBar.showError(context, 'Please login to add items to cart.');
+              context.go('/login');
+              return;
+            }
+            
+            try {
+              await ref.read(cartControllerProvider.notifier).addToCart(
+                productId: product.id,
+                quantity: 1,
+                variantId: _selectedVariantId,
+              );
+
+              if (!mounted) return;
+              ref.invalidate(cartControllerProvider); 
+
+              // Bật Panel thông báo thành công chuẩn 60fps
+              Future.microtask(() {
+                if (!mounted) return;
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  builder: (BuildContext context) => Dialog(
+                    // ... Giữ nguyên cấu trúc vẽ Dialog Canvas cũ của bạn ...
+                  ),
+                );
+              });
+
+            } catch (e) {
+              if (!mounted) return;
+              AppSnackBar.showError(context, e.toString());
+            }
+          },
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+      // Cấu hình màu sắc khi nút ở trạng thái bị vô hiệu hóa (disabled)
+      disabledForegroundColor: Colors.white38,
+    ),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          isOutOfStock ? Icons.not_interested : Icons.add_shopping_cart, // Đổi icon tương ứng
+          color: isOutOfStock ? Colors.white38 : vgStarGold, 
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Text(
+          isOutOfStock ? 'Out of Stock' : 'Add to cart', // ✨ Đổi chữ linh hoạt theo trạng thái kho
+          style: TextStyle(
+            color: isOutOfStock ? Colors.white38 : vgStarGold,
+            fontWeight: FontWeight.w900,
+            fontSize: 16,
+            fontFamily: 'serif',
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
+    ),
+  ),
+),
 
                       // 🌟 Nút Quay lại thiết kế màu vàng rực rỡ tương phản cao
                       Container(
@@ -389,7 +584,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                                 children: [
                                   Expanded(flex: 5, child: productImage),
                                   const SizedBox(width: 60),
-                                  Expanded(flex: 6, child: productInfo),
+                                  Expanded(flex: 6, child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: productInfo,
+                  ),
+                  ),
                                 ],
                               ),
                             ),

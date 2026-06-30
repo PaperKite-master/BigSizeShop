@@ -282,6 +282,18 @@ class ProfileScreen extends ConsumerWidget {
                             const SizedBox(height: 12),
                           ],
                           
+                          // My Orders button
+                          OutlinedButton.icon(
+                            onPressed: () => context.go('/orders'),
+                            icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                            label: const Text('MY ORDERS'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: primaryGold,
+                              side: const BorderSide(color: primaryGold, width: 1),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
                           OutlinedButton(
                             onPressed: () async {
                               await ref.read(authControllerProvider.notifier).logout();

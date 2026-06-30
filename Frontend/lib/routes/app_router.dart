@@ -6,6 +6,9 @@ import '../features/auth/screens/profile_screen.dart';
 import '../features/auth/screens/register_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/products/screens/product_detail_screen.dart';
+import '../features/cart/screens/cart_screen.dart';
+import '../features/cart/screens/checkout_screen.dart';
+import '../features/orders/screens/orders_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -26,6 +29,18 @@ class AppRouter {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/cart',
+        builder: (context, state) => const CartScreen(),
+      ),
+      GoRoute(
+        path: '/checkout',
+        builder: (context, state) => const CheckoutScreen(),
+      ),
+      GoRoute(
+        path: '/orders',
+        builder: (context, state) => const OrdersScreen(),
       ),
       GoRoute(
         path: '/products/:id',

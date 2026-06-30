@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/catalog_providers.dart';
+import '../../../providers/cart_providers.dart';
 import '../../../services/product_service.dart';
 import '../../products/widgets/product_card.dart';
 
@@ -50,15 +51,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
   }
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    _minPriceController.dispose();
-    _maxPriceController.dispose();
-    _debounceTimer?.cancel();
-    _animationController.dispose();
-    _hideSuggestions();
-    super.dispose();
-  }
+void dispose() {
+  _animationController.stop(); // 🌟 THÊM LỆNH NÀY: Ép dừng hiệu ứng ngay lập tức
+  _animationController.dispose(); // Hủy bộ điều khiển
+  _searchController.dispose();
+  _minPriceController.dispose();
+  _maxPriceController.dispose();
+  _debounceTimer?.cancel();
+  _hideSuggestions();
+  super.dispose();
+}
 
   void _onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
@@ -264,6 +266,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
                     onPressed: () => context.go('/profile'),
                     icon: Icon(Icons.person_outline, color: vgMidnight),
                   ),
+                  CartBadgeIconButton(color: vgMidnight),
                 ],
               ),
               body: RefreshIndicator(
@@ -610,4 +613,52 @@ class VanGoghSkyPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant VanGoghSkyPainter oldDelegate) => true;
+}
+
+class CartBadgeIconButton extends ConsumerWidget {
+  const CartBadgeIconButton({super.key, this.color});
+
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(cartBadgeCountProvider);
+    final activeColor = color ?? const Color(0xFF0F1E36);
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        IconButton(
+          icon: Icon(Icons.shopping_cart_outlined, color: activeColor),
+          onPressed: () => context.go('/cart'),
+        ),
+        if (count > 0)
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE74C3C),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.2),
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 16,
+                minHeight: 16,
+              ),
+              child: Text(
+                '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 }
