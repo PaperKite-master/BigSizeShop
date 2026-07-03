@@ -31,8 +31,17 @@ async function createUser(userData) {
   });
 }
 
+async function updateFcmToken(userId, fcmToken) {
+  return prisma.user.update({
+    where: { id: userId },
+    data: { fcmToken },
+    select: USER_PUBLIC_SELECT,
+  });
+}
+
 module.exports = {
   findUserByEmail,
   findUserById,
   createUser,
+  updateFcmToken,
 };

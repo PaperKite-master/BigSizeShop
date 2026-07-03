@@ -34,9 +34,19 @@ const logout = asyncHandler(async (req, res) => {
   res.json(result);
 });
 
+const saveFcmToken = asyncHandler(async (req, res) => {
+  const { fcmToken } = req.body;
+  await authService.saveFcmToken(req.user.id, fcmToken);
+
+  res.json({
+    message: 'FCM Token saved successfully',
+  });
+});
+
 module.exports = {
   register,
   login,
   me,
   logout,
+  saveFcmToken,
 };

@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { AppError } = require('../../../common/errors/app-error');
-const { createUser, findUserByEmail, findUserById } = require('../repositories/auth.repository');
+const { createUser, findUserByEmail, findUserById, updateFcmToken } = require('../repositories/auth.repository');
 const { loginDto, registerDto } = require('../dto/auth.dto');
 
 const SALT_ROUNDS = 10;
@@ -79,9 +79,17 @@ function logout() {
   return { message: 'Logged out successfully' };
 }
 
+async function saveFcmToken(userId, fcmToken) {
+  if (!fcmToken) {
+    throw new AppError('FCM Token is required', 400);
+  }
+  return updateFcmToken(userId, fcmToken);
+}
+
 module.exports = {
   register,
   login,
   getMe,
   logout,
+  saveFcmToken,
 };

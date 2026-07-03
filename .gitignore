@@ -77,6 +77,8 @@ backend/prisma/*.db-journal
 backend/.supabase/
 backend/supabase/.temp/
 backend/supabase/functions/.env
+backend/firebase-service-account.json
+
 
 
 # ==============================================================================

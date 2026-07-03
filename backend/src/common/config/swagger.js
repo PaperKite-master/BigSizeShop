@@ -18,6 +18,7 @@ const swaggerSpec = {
     { name: 'Products', description: 'Product catalog management' },
     { name: 'Cart', description: 'Shopping cart management' },
     { name: 'Orders', description: 'Order management and checkout' },
+    { name: 'Notifications', description: 'Push notification and broadcast management' },
   ],
   paths: {
     '/health': {
@@ -135,6 +136,44 @@ const swaggerSpec = {
           },
         },
       },
+    },
+    '/auth/fcm-token': {
+      post: {
+        tags: ['Auth'],
+        summary: 'Save/sync device FCM Token for push notifications',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['fcmToken'],
+                properties: {
+                  fcmToken: { type: 'string', example: 'your-device-fcm-token' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: 'FCM Token saved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string', example: 'FCM Token saved successfully' }
+                  }
+                }
+              }
+            }
+          },
+          400: { description: 'Missing FCM Token' },
+          401: { description: 'Unauthorized' }
+        }
+      }
     },
     '/categories': {
       get: {
@@ -395,6 +434,96 @@ const swaggerSpec = {
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         responses: { 200: { description: 'Order cancelled' } }
+      }
+    },
+    '/orders/{id}/status': {
+      patch: {
+        tags: ['Orders'],
+        summary: 'Update order status and trigger push notification',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['status'],
+                properties: {
+                  status: { type: 'string', enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'], example: 'SHIPPED' }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: 'Order status updated successfully and notification triggered',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string', example: 'Order status updated successfully' },
+                    data: { $ref: '#/components/schemas/Order' }
+                  }
+                }
+              }
+            }
+          },
+          400: { description: 'Invalid status' },
+          401: { description: 'Unauthorized' },
+          404: { description: 'Order not found' }
+        }
+      }
+    },
+    '/notifications/broadcast': {
+      post: {
+        tags: ['Notifications'],
+        summary: 'Send broadcast notification to all devices (admin only)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['title', 'body'],
+                properties: {
+                  title: { type: 'string', example: 'Khuyến mãi mùa hè!' },
+                  body: { type: 'string', example: 'Giảm giá cực sốc 50% cho toàn bộ sản phẩm!' },
+                  data: { type: 'object', description: 'Optional key-value data payload', additionalProperties: { type: 'string' } }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: 'Broadcast notification sent successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        sentCount: { type: 'integer' },
+                        tokenCount: { type: 'integer' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          401: { description: 'Unauthorized' },
+          403: { description: 'Forbidden (admin only)' }
+        }
       }
     }
   },

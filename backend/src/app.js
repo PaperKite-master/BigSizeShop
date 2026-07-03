@@ -11,6 +11,7 @@ const categoryRoutes = require('./modules/category/routes/category.routes');
 const productRoutes = require('./modules/product/routes/product.routes');
 const cartRoutes = require('./modules/cart/routes/cart.routes');
 const orderRoutes = require('./modules/order/routes/order.routes');
+const notificationRoutes = require('./modules/notification/routes/notification.routes');
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
 app.use('/cart', cartRoutes);
 app.use('/orders', orderRoutes);
+app.use('/notifications', notificationRoutes);
 
 app.use(errorHandler);
 

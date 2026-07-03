@@ -28,8 +28,19 @@ const getUserOrders = asyncHandler(async (req, res) => {
   });
 });
 
+const updateOrderStatus = asyncHandler(async (req, res) => {
+  const { status } = req.body;
+  const result = await orderService.updateOrderStatus(req.params.id, status);
+
+  res.json({
+    message: 'Order status updated successfully',
+    data: result,
+  });
+});
+
 module.exports = {
   createOrder,
   cancelOrder,
-  getUserOrders
+  getUserOrders,
+  updateOrderStatus,
 };

@@ -132,10 +132,20 @@ async function findManyByUserId(userId) {
   });
 }
 
+async function findById(id) {
+  return prisma.order.findUnique({
+    where: { id },
+    include: {
+      order_items: true,
+    },
+  });
+}
+
 module.exports = {
   findByIdAndUserId,
   updateStatus,
   createOrderFromCart,
   cancelOrderAndRestoreStock,
-  findManyByUserId
+  findManyByUserId,
+  findById,
 };
