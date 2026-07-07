@@ -9,6 +9,7 @@ import '../features/products/screens/product_detail_screen.dart';
 import '../features/cart/screens/cart_screen.dart';
 import '../features/cart/screens/checkout_screen.dart';
 import '../features/orders/screens/orders_screen.dart';
+import '../features/cart/screens/order_confirmation_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -41,6 +42,13 @@ class AppRouter {
       GoRoute(
         path: '/orders',
         builder: (context, state) => const OrdersScreen(),
+      ),
+      GoRoute(
+        path: '/order-confirm',
+        builder: (context, state) {
+          final paymentMethod = state.uri.queryParameters['paymentMethod'] ?? 'COD';
+          return OrderConfirmationScreen(paymentMethod: paymentMethod);
+        },
       ),
       GoRoute(
         path: '/products/:id',
