@@ -9,15 +9,31 @@ async function findByIdAndUserId(id, userId) {
           products: true,
           product_variants: true,
         }
+      },
+      order_status_logs: {
+        orderBy: { created_at: 'asc' }
       }
     }
   });
 }
 
-async function updateStatus(id, status) {
-  return prisma.order.update({
-    where: { id },
-    data: { status },
+async function updateStatus(id, fromStatus, toStatus, note = null) {
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.update({
+      where: { id },
+      data: { status: toStatus },
+    });
+
+    await tx.order_status_logs.create({
+      data: {
+        order_id: id,
+        from_status: fromStatus,
+        to_status: toStatus,
+        note,
+      },
+    });
+
+    return order;
   });
 }
 
@@ -47,7 +63,17 @@ async function createOrderFromCart(userId, orderData, cartItems, totalPrice) {
       }
     });
 
-    // 2. Reduce stock for each product/variant
+    // 2. Create Order Status Log for PENDING
+    await tx.order_status_logs.create({
+      data: {
+        order_id: order.id,
+        from_status: null,
+        to_status: 'PENDING',
+        note: 'Đơn hàng được tạo mới thành công.'
+      }
+    });
+
+    // 3. Reduce stock for each product/variant
     for (const item of cartItems) {
       if (item.variant_id) {
         await tx.product_variants.update({
@@ -70,7 +96,7 @@ async function createOrderFromCart(userId, orderData, cartItems, totalPrice) {
       }
     }
 
-    // 3. Clear the user's cart
+    // 4. Clear the user's cart
     await tx.cartItem.deleteMany({
       where: { userId }
     });
@@ -80,7 +106,7 @@ async function createOrderFromCart(userId, orderData, cartItems, totalPrice) {
 }
 
 // Restore stock when an order is cancelled
-async function cancelOrderAndRestoreStock(orderId, orderItems) {
+async function cancelOrderAndRestoreStock(orderId, orderItems, fromStatus) {
   return prisma.$transaction(async (tx) => {
     // 1. Update order status
     const order = await tx.order.update({
@@ -88,7 +114,63 @@ async function cancelOrderAndRestoreStock(orderId, orderItems) {
       data: { status: 'CANCELLED' }
     });
 
-    // 2. Restore stock
+    // 2. Create the status log
+    await tx.order_status_logs.create({
+      data: {
+        order_id: orderId,
+        from_status: fromStatus,
+        to_status: 'CANCELLED',
+        note: 'Khách hàng yêu cầu hủy đơn hàng.'
+      }
+    });
+
+    // 3. Restore stock
+    for (const item of orderItems) {
+      if (item.variant_id) {
+        await tx.product_variants.update({
+          where: { id: item.variant_id },
+          data: {
+            stock: {
+              increment: item.quantity
+            }
+          }
+        });
+      } else {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: {
+            stock: {
+              increment: item.quantity
+            }
+          }
+        });
+      }
+    }
+
+    return order;
+  });
+}
+
+// Update status to Cancelled and restore stock (called by Admin/System updates)
+async function updateStatusAndRestoreStock(orderId, orderItems, fromStatus, toStatus, note) {
+  return prisma.$transaction(async (tx) => {
+    // 1. Update order status
+    const order = await tx.order.update({
+      where: { id: orderId },
+      data: { status: toStatus }
+    });
+
+    // 2. Create the status log
+    await tx.order_status_logs.create({
+      data: {
+        order_id: orderId,
+        from_status: fromStatus,
+        to_status: toStatus,
+        note,
+      }
+    });
+
+    // 3. Restore stock
     for (const item of orderItems) {
       if (item.variant_id) {
         await tx.product_variants.update({
@@ -124,6 +206,9 @@ async function findManyByUserId(userId) {
           products: true,
           product_variants: true,
         }
+      },
+      order_status_logs: {
+        orderBy: { created_at: 'asc' }
       }
     },
     orderBy: {
@@ -137,6 +222,9 @@ async function findById(id) {
     where: { id },
     include: {
       order_items: true,
+      order_status_logs: {
+        orderBy: { created_at: 'asc' }
+      }
     },
   });
 }
@@ -146,6 +234,7 @@ module.exports = {
   updateStatus,
   createOrderFromCart,
   cancelOrderAndRestoreStock,
+  updateStatusAndRestoreStock,
   findManyByUserId,
   findById,
 };

@@ -92,7 +92,8 @@ async function update(id, payload) {
     throw new AppError('Price must be zero or greater', 400);
   }
 
-  return productRepository.update(id, data);
+  const { images, variants, ...productData } = data;
+  return productRepository.update(id, productData, images, variants);
 }
 
 async function remove(id) {

@@ -76,6 +76,27 @@ function updateProductDto(payload = {}) {
   if (payload.is_active !== undefined) {
     data.is_active = Boolean(payload.is_active);
   }
+  if (payload.images !== undefined) {
+    data.images = Array.isArray(payload.images)
+      ? payload.images.map((img) => ({
+          image_url: String(img.image_url || img.imageUrl || '').trim(),
+          is_thumbnail: Boolean(img.is_thumbnail ?? img.isThumbnail),
+        }))
+      : [];
+  }
+  if (payload.variants !== undefined) {
+    data.variants = Array.isArray(payload.variants)
+      ? payload.variants.map((variant) => ({
+          variant_name: String(variant.variant_name || variant.variantName || '').trim(),
+          sku: variant.sku ? String(variant.sku).trim() : null,
+          price: parseNumber(variant.price),
+          stock: parseInt(variant.stock, 10) || 0,
+          image_url: variant.image_url || variant.imageUrl
+            ? String(variant.image_url || variant.imageUrl).trim()
+            : null,
+        }))
+      : [];
+  }
 
   return data;
 }

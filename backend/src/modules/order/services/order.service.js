@@ -4,6 +4,14 @@ const cartService = require('../../cart/services/cart.service');
 const { createOrderDto } = require('../dto/order.dto');
 const { sendPushNotification } = require('../../notification/services/notification.service');
 
+const VALID_TRANSITIONS = {
+  'PENDING': ['CONFIRMED', 'CANCELLED'],
+  'CONFIRMED': ['SHIPPING', 'CANCELLED'],
+  'SHIPPING': ['DELIVERED', 'CANCELLED'],
+  'DELIVERED': [],
+  'CANCELLED': []
+};
+
 async function createOrder(userId, payload) {
   const data = createOrderDto(payload);
   
@@ -53,7 +61,7 @@ async function cancelOrder(userId, orderId) {
   }
 
   // Use transaction to cancel order and restore stock
-  const cancelledOrder = await orderRepository.cancelOrderAndRestoreStock(order.id, order.order_items);
+  const cancelledOrder = await orderRepository.cancelOrderAndRestoreStock(order.id, order.order_items, order.status);
 
   // Send push notification
   sendPushNotification(
@@ -70,25 +78,58 @@ async function getUserOrders(userId) {
   return orderRepository.findManyByUserId(userId);
 }
 
-async function updateOrderStatus(orderId, status) {
+async function updateOrderStatus(orderId, statusInput) {
+  const status = String(statusInput || '').toUpperCase();
+  
   const order = await orderRepository.findById(orderId);
   
   if (!order) {
     throw new AppError('Order not found', 404);
   }
 
-  const updatedOrder = await orderRepository.updateStatus(orderId, status);
+  const currentStatus = order.status || 'PENDING';
+
+  // Validate status existence
+  if (!VALID_TRANSITIONS[status]) {
+    throw new AppError(`Invalid status: ${statusInput}`, 400);
+  }
+
+  // Validate state transition
+  const allowedTransitions = VALID_TRANSITIONS[currentStatus];
+  if (!allowedTransitions.includes(status)) {
+    throw new AppError(`Cannot transition order from ${currentStatus} to ${status}.`, 400);
+  }
+
+  let updatedOrder;
+  if (status === 'CANCELLED') {
+    // If cancelling, we must restore product stock
+    updatedOrder = await orderRepository.updateStatusAndRestoreStock(
+      orderId, 
+      order.order_items, 
+      currentStatus, 
+      'CANCELLED', 
+      'Cập nhật trạng thái đơn hàng sang CANCELLED bởi Admin/Hệ thống.'
+    );
+  } else {
+    // Standard status update with history log
+    updatedOrder = await orderRepository.updateStatus(
+      orderId, 
+      currentStatus, 
+      status, 
+      `Cập nhật trạng thái đơn hàng sang ${status} bởi Admin/Hệ thống.`
+    );
+  }
 
   // Send push notification when status changes
   let title = 'Cập nhật trạng thái đơn hàng';
   let body = `Đơn hàng #${orderId.substring(0, 8)} đã thay đổi trạng thái sang: ${status}.`;
 
-  if (status === 'PROCESSING') {
-    title = 'Đơn hàng đang xử lý';
-    body = `Đơn hàng #${orderId.substring(0, 8)} đang được chuẩn bị và xử lý.`;
-  } else if (status === 'SHIPPED') {
-    title = 'Đơn hàng đang được giao';
-    body = `Đơn hàng #${orderId.substring(0, 8)} đã được giao cho đơn vị vận chuyển.`;
+  if (status === 'CONFIRMED') {
+    title = 'Đơn hàng đã xác nhận';
+    body = `Đơn hàng #${orderId.substring(0, 8)} của bạn đã được xác nhận.`;
+  } else if (status === 'SHIPPING') {
+    title = 'Đơn hàng đang vận chuyển';
+    body = `Đơn hàng #${orderId.substring(0, 8)} đã được bàn giao cho đơn vị vận chuyển.`;
   } else if (status === 'DELIVERED') {
     title = 'Giao hàng thành công';
     body = `Đơn hàng #${orderId.substring(0, 8)} đã được giao thành công. Cảm ơn bạn!`;

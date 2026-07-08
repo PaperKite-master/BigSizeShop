@@ -85,11 +85,58 @@ async function create(data, images = [], variants = []) {
   });
 }
 
-async function update(id, data) {
-  return prisma.product.update({
-    where: { id },
-    data,
-    include: PRODUCT_INCLUDE,
+async function update(id, data, images, variants) {
+  return prisma.$transaction(async (tx) => {
+    if (Object.keys(data).length > 0) {
+      await tx.product.update({
+        where: { id },
+        data,
+      });
+    }
+
+    if (images !== undefined) {
+      await tx.product_images.deleteMany({
+        where: { product_id: id },
+      });
+      const validImages = images.filter((img) => img.image_url);
+      if (validImages.length > 0) {
+        await tx.product_images.createMany({
+          data: validImages.map((img) => ({
+            product_id: id,
+            image_url: img.image_url,
+            is_thumbnail: img.is_thumbnail,
+          })),
+        });
+      }
+    }
+
+    // Update variants if provided
+    if (variants !== undefined) {
+      // Delete existing variants
+      await tx.product_variants.deleteMany({
+        where: { product_id: id },
+      });
+      // Create new ones
+      const validVariants = variants.filter((v) => v.variant_name);
+      if (validVariants.length > 0) {
+        await tx.product_variants.createMany({
+          data: validVariants.map((v) => ({
+            product_id: id,
+            variant_name: v.variant_name,
+            sku: v.sku,
+            price: v.price,
+            stock: v.stock,
+            image_url: v.image_url,
+          })),
+        });
+      }
+    }
+
+    // Return the updated product with all relations included
+    return tx.product.findUnique({
+      where: { id },
+      include: PRODUCT_INCLUDE,
+    });
   });
 }
 

@@ -1,5 +1,5 @@
 const express = require('express');
-const { authenticate } = require('../../../common/middleware/auth.middleware');
+const { authenticate, requireAdmin } = require('../../../common/middleware/auth.middleware');
 const {
   createOrder,
   cancelOrder,
@@ -14,6 +14,6 @@ router.use(authenticate);
 router.get('/', getUserOrders);
 router.post('/', createOrder);
 router.patch('/:id/cancel', cancelOrder);
-router.patch('/:id/status', updateOrderStatus);
+router.patch('/:id/status', requireAdmin, updateOrderStatus);
 
 module.exports = router;
