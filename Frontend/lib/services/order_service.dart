@@ -31,4 +31,12 @@ class OrderService {
     final response = await _client.dio.patch<Map<String, dynamic>>('/orders/$orderId/cancel');
     return OrderModel.fromJson(response.data!['data'] as Map<String, dynamic>);
   }
+
+  Future<OrderModel> updateOrderStatus(String orderId, String status) async {
+    final response = await _client.dio.patch<Map<String, dynamic>>(
+      '/orders/$orderId/status',
+      data: {'status': status},
+    );
+    return OrderModel.fromJson(response.data!['data'] as Map<String, dynamic>);
+  }
 }

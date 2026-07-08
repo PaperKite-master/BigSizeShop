@@ -10,6 +10,8 @@ import '../features/cart/screens/cart_screen.dart';
 import '../features/cart/screens/checkout_screen.dart';
 import '../features/orders/screens/orders_screen.dart';
 import '../features/cart/screens/order_confirmation_screen.dart';
+import '../features/admin/screens/admin_orders_screen.dart';
+import '../features/admin/screens/admin_add_product_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -67,6 +69,14 @@ class AppRouter {
       GoRoute(
         path: '/admin/products',
         builder: (context, state) => const AdminProductsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/orders',
+        builder: (context, state) => const AdminOrdersScreen(),
+      ),
+      GoRoute(
+        path: '/admin/add-product',
+        builder: (context, state) => const AdminAddProductScreen(),
       ),
     ],
   );
