@@ -293,6 +293,17 @@ class ProfileScreen extends ConsumerWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
+
+                          OutlinedButton.icon(
+                            onPressed: () => context.go('/chat'),
+                            icon: const Icon(Icons.chat_outlined, size: 18),
+                            label: Text(user.isAdmin ? 'CUSTOMER CHATS' : 'SUPPORT CHAT'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: primaryGold,
+                              side: const BorderSide(color: primaryGold, width: 1),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           
                           OutlinedButton(
                             onPressed: () async {

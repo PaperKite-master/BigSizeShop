@@ -1,21 +1,22 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'secure_storage_impl.dart'
+    if (dart.library.html) 'secure_storage_web_impl.dart';
 
 import '../constants/app_constants.dart';
 
 class SecureStorageService {
-  const SecureStorageService(this._storage);
+  const SecureStorageService();
 
-  final FlutterSecureStorage _storage;
+  static const SecureStorageImpl _impl = SecureStorageImpl();
 
   Future<void> saveToken(String token) {
-    return _storage.write(key: AppConstants.tokenKey, value: token);
+    return _impl.write(AppConstants.tokenKey, token);
   }
 
   Future<String?> readToken() {
-    return _storage.read(key: AppConstants.tokenKey);
+    return _impl.read(AppConstants.tokenKey);
   }
 
   Future<void> deleteToken() {
-    return _storage.delete(key: AppConstants.tokenKey);
+    return _impl.delete(AppConstants.tokenKey);
   }
 }

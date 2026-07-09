@@ -12,6 +12,7 @@ const productRoutes = require('./modules/product/routes/product.routes');
 const cartRoutes = require('./modules/cart/routes/cart.routes');
 const orderRoutes = require('./modules/order/routes/order.routes');
 const notificationRoutes = require('./modules/notification/routes/notification.routes');
+const chatRoutes = require('./modules/chat/routes/chat.routes');
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/products', productRoutes);
 app.use('/cart', cartRoutes);
 app.use('/orders', orderRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/chats', chatRoutes);
 
 app.use(errorHandler);
 

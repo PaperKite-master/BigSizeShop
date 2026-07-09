@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../core/network/api_client.dart';
@@ -11,7 +10,7 @@ import '../services/category_service.dart';
 import '../services/product_service.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>(
-  (ref) => const SecureStorageService(FlutterSecureStorage()),
+  (ref) => const SecureStorageService(),
 );
 
 final apiClientProvider = Provider<ApiClient>((ref) {

@@ -93,3 +93,4 @@ backend/firebase-service-account.json
 *.env.*
 **/backend/.env
 **/Frontend/.env
+Frontend/dart_defines.local.json

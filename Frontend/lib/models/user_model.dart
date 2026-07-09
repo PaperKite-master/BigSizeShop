@@ -17,7 +17,7 @@ class UserModel {
   final String role;
   final DateTime? createdAt;
 
-  bool get isAdmin => role == 'ADMIN';
+  bool get isAdmin => role.toUpperCase() == 'ADMIN';
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(

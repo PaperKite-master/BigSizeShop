@@ -12,6 +12,7 @@ import '../features/orders/screens/orders_screen.dart';
 import '../features/cart/screens/order_confirmation_screen.dart';
 import '../features/admin/screens/admin_orders_screen.dart';
 import '../features/admin/screens/admin_add_product_screen.dart';
+import '../features/chat/screens/chat_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -77,6 +78,16 @@ class AppRouter {
       GoRoute(
         path: '/admin/add-product',
         builder: (context, state) => const AdminAddProductScreen(),
+      ),
+      GoRoute(
+        path: '/chat',
+        builder: (context, state) => const ChatListScreen(),
+      ),
+      GoRoute(
+        path: '/chat/:chatId',
+        builder: (context, state) => ChatScreen(
+          chatId: state.pathParameters['chatId']!,
+        ),
       ),
     ],
   );
