@@ -19,6 +19,7 @@ const swaggerSpec = {
     { name: 'Cart', description: 'Shopping cart management' },
     { name: 'Orders', description: 'Order management and checkout' },
     { name: 'Notifications', description: 'Push notification and broadcast management' },
+    { name: 'Stores', description: 'Store locations with coordinates' },
   ],
   paths: {
     '/health': {
@@ -523,9 +524,56 @@ const swaggerSpec = {
           },
           401: { description: 'Unauthorized' },
           403: { description: 'Forbidden (admin only)' }
-        }
-      }
-    }
+        },
+      },
+    },
+    '/stores': {
+      get: {
+        tags: ['Stores'],
+        summary: 'Get all active store locations',
+        description: 'Returns list of all active store branches with coordinates (latitude, longitude) and detailed info.',
+        responses: {
+          200: {
+            description: 'List of store locations',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string', example: 'Store locations fetched successfully' },
+                    data: { type: 'array', items: { $ref: '#/components/schemas/StoreLocation' } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/stores/{id}': {
+      get: {
+        tags: ['Stores'],
+        summary: 'Get store location by ID',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: {
+            description: 'Store location detail',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    message: { type: 'string' },
+                    data: { $ref: '#/components/schemas/StoreLocation' },
+                  },
+                },
+              },
+            },
+          },
+          404: { description: 'Store not found', content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } } },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -745,6 +793,20 @@ const swaggerSpec = {
           title: { type: 'string', maxLength: 255 },
           content: { type: 'string' },
           isRead: { type: 'boolean', default: false },
+          created_at: { type: 'string', format: 'date-time', nullable: true },
+        },
+      },
+      StoreLocation: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          store_name: { type: 'string', example: 'BigSize Shop - Chi nhánh Quận 1' },
+          address: { type: 'string', example: '123 Nguyễn Văn A, Q1, TP.HCM' },
+          latitude: { type: 'number', format: 'float', example: 10.7769 },
+          longitude: { type: 'number', format: 'float', example: 106.7009 },
+          phone: { type: 'string', nullable: true, example: '028 1234 5678' },
+          opening_hours: { type: 'string', nullable: true, example: '08:00 - 22:00' },
+          is_active: { type: 'boolean', default: true },
           created_at: { type: 'string', format: 'date-time', nullable: true },
         },
       },
