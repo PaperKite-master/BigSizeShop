@@ -16,9 +16,9 @@ model User {
   phone                          String?          @db.VarChar(20)
   avatar                         String?
   role                           String?          @default("USER") @db.VarChar(20)
-  fcmToken                       String?          @map("fcm_token")
   createdAt                      DateTime?        @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at                     DateTime?        @default(now()) @db.Timestamp(6)
+  fcmToken                       String?          @map("fcm_token")
   addresses                      addresses[]
   cart_items                     CartItem[]
   chats_chats_admin_idTousers    chats[]          @relation("chats_admin_idTousers")
@@ -85,13 +85,13 @@ model Order {
   status            String?             @default("PENDING") @db.VarChar(30)
   address           String
   paymentMethod     String?             @map("payment_method") @db.VarChar(50)
-  paymentStatus     String?             @default("UNPAID") @map("payment_status") @db.VarChar(30)
   createdAt         DateTime?           @default(now()) @map("created_at") @db.Timestamp(6)
   updated_at        DateTime?           @default(now()) @db.Timestamp(6)
+  paymentStatus     String?             @default("UNPAID") @map("payment_status") @db.VarChar(30)
   order_items       OrderItem[]
+  order_status_logs order_status_logs[]
   users             User                @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   voucher_usages    voucher_usages[]
-  order_status_logs order_status_logs[]
 
   @@index([userId], map: "idx_orders_user")
   @@map("orders")
