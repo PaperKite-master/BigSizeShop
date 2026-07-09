@@ -310,6 +310,72 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
               ),
             ],
           ),
+          if (order.status.toUpperCase() == 'PENDING') ...[
+            const Divider(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _showCancelConfirmationDialog(context, order.id),
+                  icon: const Icon(Icons.cancel, color: Colors.red),
+                  label: const Text(
+                    'Cancel Order',
+                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showCancelConfirmationDialog(BuildContext context, String orderId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFFDFCF7),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            const SizedBox(width: 8),
+            Text(
+              'Cancel Order',
+              style: TextStyle(fontFamily: 'serif', color: vgMidnight, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to cancel this order?',
+          style: TextStyle(color: vgMidnight),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('No', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              try {
+                await ref.read(ordersProvider.notifier).cancelOrder(orderId);
+                if (context.mounted) {
+                  AppSnackBar.showSuccess(context, 'Order cancelled successfully');
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  AppSnackBar.showError(context, e.toString());
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Yes, Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );

@@ -70,4 +70,24 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
       rethrow;
     }
   }
+
+  Future<void> cancelOrder(String orderId) async {
+    try {
+      await _orderService.cancelOrder(orderId);
+      // Refresh the orders history list
+      fetchOrders();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> updateOrderStatus(String orderId, String status) async {
+    try {
+      await _orderService.updateOrderStatus(orderId, status);
+      // Refresh the orders history list
+      fetchOrders();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

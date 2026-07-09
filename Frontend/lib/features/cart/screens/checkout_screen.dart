@@ -22,7 +22,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
 
   String? _selectedAddressId;
   String _selectedPaymentMethod = 'COD';
-  bool _isSubmitting = false;
 
   // Controllers for new address form
   final _nameController = TextEditingController();
@@ -148,64 +147,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     );
   }
 
-  void _submitOrder(double totalPrice) async {
-    if (_selectedAddressId == null) {
-      AppSnackBar.showError(context, 'Please select a delivery address');
-      return;
-    }
 
-    setState(() => _isSubmitting = true);
-
-    try {
-      await ref.read(ordersProvider.notifier).placeOrder(
-            addressId: _selectedAddressId,
-            paymentMethod: _selectedPaymentMethod,
-          );
-
-      // Show Success Dialog
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFFFDFCF7),
-            title: Row(
-              children: [
-                Icon(Icons.check_circle, color: vgCypressGreen, size: 30),
-                const SizedBox(width: 8),
-                Text(
-                  'Order Placed!',
-                  style: TextStyle(fontFamily: 'serif', color: vgMidnight, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            content: Text(
-              'Thank you! Your order was successfully created.\nTotal Amount: ${formatCurrency(totalPrice + 30000)}',
-              style: TextStyle(color: vgMidnight),
-            ),
-            actions: [
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context); // Close dialog
-                  context.go('/orders'); // Route to orders screen
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: vgStarGold, foregroundColor: vgMidnight),
-                child: const Text('View My Orders', style: TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        AppSnackBar.showError(context, e.toString());
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -614,28 +556,22 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ],
               ),
               child: ElevatedButton(
-                onPressed: _isSubmitting ? null : () => _submitOrder(subtotal),
+                onPressed: () => context.go('/order-confirm?paymentMethod=$_selectedPaymentMethod'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                 ),
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : Text(
-                        'Place Order',
-                        style: TextStyle(
-                          color: vgStarGold,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          fontFamily: 'serif',
-                        ),
-                      ),
+                child: Text(
+                  'Place Order',
+                  style: TextStyle(
+                    color: vgStarGold,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    fontFamily: 'serif',
+                  ),
+                ),
               ),
             ),
           ],

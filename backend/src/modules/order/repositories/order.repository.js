@@ -59,7 +59,12 @@ async function createOrderFromCart(userId, orderData, cartItems, totalPrice) {
         }
       },
       include: {
-        order_items: true
+        order_items: {
+          include: {
+            products: true,
+            product_variants: true,
+          }
+        }
       }
     });
 

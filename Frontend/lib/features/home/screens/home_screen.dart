@@ -262,6 +262,18 @@ void dispose() {
                   ),
                 ),
                 actions: [
+                  if (authState.valueOrNull?.isAdmin == true) ...[
+                    IconButton(
+                      onPressed: () => context.go('/admin/orders'),
+                      icon: Icon(Icons.receipt_long, color: vgMidnight),
+                      tooltip: 'All Orders',
+                    ),
+                    IconButton(
+                      onPressed: () => context.go('/admin/add-product'),
+                      icon: Icon(Icons.add_box_outlined, color: vgMidnight),
+                      tooltip: 'Add Product',
+                    ),
+                  ],
                   IconButton(
                     onPressed: () => context.go('/profile'),
                     icon: Icon(Icons.person_outline, color: vgMidnight),

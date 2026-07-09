@@ -20,10 +20,22 @@ class OrderService {
     final response = await _client.post<Map<String, dynamic>>(
       '/orders',
       data: {
-        if (addressId != null) 'addressId': addressId,
-        if (addressText != null) 'addressText': addressText,
+        'address': addressText ?? 'string',
         'paymentMethod': paymentMethod,
       },
+    );
+    return OrderModel.fromJson(response.data!['data'] as Map<String, dynamic>);
+  }
+
+  Future<OrderModel> cancelOrder(String orderId) async {
+    final response = await _client.dio.patch<Map<String, dynamic>>('/orders/$orderId/cancel');
+    return OrderModel.fromJson(response.data!['data'] as Map<String, dynamic>);
+  }
+
+  Future<OrderModel> updateOrderStatus(String orderId, String status) async {
+    final response = await _client.dio.patch<Map<String, dynamic>>(
+      '/orders/$orderId/status',
+      data: {'status': status},
     );
     return OrderModel.fromJson(response.data!['data'] as Map<String, dynamic>);
   }
