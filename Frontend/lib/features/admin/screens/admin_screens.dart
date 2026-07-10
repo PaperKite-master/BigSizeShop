@@ -46,6 +46,12 @@ class AdminDashboardScreen extends ConsumerWidget {
                 icon: Icons.inventory_2_outlined,
                 onTap: () => context.go('/admin/products'),
               ),
+              _AdminTile(
+                title: 'Quản lý Chat hỗ trợ',
+                subtitle: 'Xem và phản hồi tin nhắn của khách hàng',
+                icon: Icons.chat_outlined,
+                onTap: () => context.go('/chat'),
+              ),
             ],
           );
         },

@@ -262,6 +262,11 @@ void dispose() {
                   ),
                 ),
                 actions: [
+                  IconButton(
+                    onPressed: () => context.go('/stores'),
+                    icon: Icon(Icons.map_outlined, color: vgMidnight),
+                    tooltip: 'Cửa hàng',
+                  ),
                   if (authState.valueOrNull?.isAdmin == true) ...[
                     IconButton(
                       onPressed: () => context.go('/admin/orders'),
