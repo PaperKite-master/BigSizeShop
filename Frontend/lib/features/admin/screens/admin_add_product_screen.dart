@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/app_widgets.dart';
 import '../../../models/category_model.dart';
+import '../../../models/product_model.dart';
 import '../../../providers/app_providers.dart';
 import '../../../providers/catalog_providers.dart';
+import '../../../services/product_service.dart';
+import '../widgets/manage_product_list_item.dart';
 
 class AdminAddProductScreen extends ConsumerStatefulWidget {
   const AdminAddProductScreen({super.key});
@@ -14,41 +17,158 @@ class AdminAddProductScreen extends ConsumerStatefulWidget {
   ConsumerState<AdminAddProductScreen> createState() => _AdminAddProductScreenState();
 }
 
-class _AdminAddProductScreenState extends ConsumerState<AdminAddProductScreen> {
+class _AdminAddProductScreenState extends ConsumerState<AdminAddProductScreen>
+    with SingleTickerProviderStateMixin {
   final Color vgMidnight = const Color(0xFF0F1E36);
   final Color vgCyanSky = const Color(0xFF1C528B);
   final Color vgStarGold = const Color(0xFFF3C63F);
   final Color vgCypressGreen = const Color(0xFF233B2B);
 
+  late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
 
-  // Base product controllers
+  // Base product controllers (Tab 1)
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _priceController = TextEditingController();
   final _stockController = TextEditingController();
   final _imageUrlController = TextEditingController();
 
-  // Category selection variables
+  // Category selection variables (Tab 1)
   String? _selectedCategoryId;
   bool _createNewCategory = false;
   final _newCategoryController = TextEditingController();
 
-  // Sub-images and variants
+  // Sub-images and variants (Tab 1)
   final List<Map<String, dynamic>> _images = [];
   final List<Map<String, dynamic>> _variants = [];
 
   bool _isSubmitting = false;
+  ProductModel? _editingProduct; // Keeps track of product being updated
+
+  // Local state for product list tab (Tab 2)
+  Future<ProductListResult>? _adminProductsFuture;
+  final _adminSearchController = TextEditingController();
+  String? _adminSelectedCategory;
+  int _adminPage = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _adminProductsFuture = _fetchAdminProducts();
+  }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _nameController.dispose();
     _descController.dispose();
     _priceController.dispose();
     _stockController.dispose();
     _imageUrlController.dispose();
     _newCategoryController.dispose();
+    _adminSearchController.dispose();
     super.dispose();
+  }
+
+  // --- LOCAL DATA FETCH FOR TAB 2 ---
+  Future<ProductListResult> _fetchAdminProducts() async {
+    final service = ref.read(productServiceProvider);
+    final query = ProductQuery(
+      page: _adminPage,
+      limit: 8,
+      search: _adminSearchController.text.trim().isEmpty ? null : _adminSearchController.text.trim(),
+      category: _adminSelectedCategory,
+    );
+    if (query.search != null) {
+      return service.search(query);
+    }
+    if (query.category != null) {
+      return service.filter(query);
+    }
+    return service.list(query);
+  }
+
+  void _refreshAdminProducts() {
+    setState(() {
+      _adminProductsFuture = _fetchAdminProducts();
+    });
+  }
+
+  // --- TAB 1 EDIT LOGIC ---
+  void _startEditing(ProductModel product) {
+    setState(() {
+      _editingProduct = product;
+      _nameController.text = product.name;
+      _descController.text = product.description ?? '';
+      _priceController.text = product.price.toString();
+      _stockController.text = product.stock.toString();
+      _imageUrlController.text = product.imageUrl ?? '';
+      _selectedCategoryId = product.categoryId;
+      _createNewCategory = false;
+
+      // Clear and populate images
+      for (var img in _images) {
+        img['urlController'].dispose();
+      }
+      _images.clear();
+      for (var img in product.images) {
+        _images.add({
+          'urlController': TextEditingController(text: img.imageUrl),
+          'isThumbnail': img.isThumbnail,
+        });
+      }
+
+      // Clear and populate variants
+      for (var v in _variants) {
+        v['nameController'].dispose();
+        v['skuController'].dispose();
+        v['priceController'].dispose();
+        v['stockController'].dispose();
+        v['imageUrlController'].dispose();
+      }
+      _variants.clear();
+      for (var v in product.variants) {
+        _variants.add({
+          'nameController': TextEditingController(text: v.variantName),
+          'skuController': TextEditingController(text: v.sku ?? ''),
+          'priceController': TextEditingController(text: v.price?.toString() ?? ''),
+          'stockController': TextEditingController(text: v.stock.toString()),
+          'imageUrlController': TextEditingController(text: v.imageUrl ?? ''),
+        });
+      }
+    });
+
+    _tabController.animateTo(0); // Switch back to Add/Edit tab
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _editingProduct = null;
+      _nameController.clear();
+      _descController.clear();
+      _priceController.clear();
+      _stockController.clear();
+      _imageUrlController.clear();
+      _selectedCategoryId = null;
+      _createNewCategory = false;
+      _newCategoryController.clear();
+
+      for (var img in _images) {
+        img['urlController'].dispose();
+      }
+      _images.clear();
+
+      for (var v in _variants) {
+        v['nameController'].dispose();
+        v['skuController'].dispose();
+        v['priceController'].dispose();
+        v['stockController'].dispose();
+        v['imageUrlController'].dispose();
+      }
+      _variants.clear();
+    });
   }
 
   void _addImageField() {
@@ -113,7 +233,6 @@ class _AdminAddProductScreenState extends ConsumerState<AdminAddProductScreen> {
         final catService = ref.read(categoryServiceProvider);
         final newCategory = await catService.create(_newCategoryController.text.trim());
         categoryId = newCategory.id;
-        // Invalidate categories to refresh cache
         ref.invalidate(categoriesProvider);
       }
 
@@ -150,32 +269,83 @@ class _AdminAddProductScreenState extends ConsumerState<AdminAddProductScreen> {
         'variants': variantsPayload,
       };
 
-      // 5. POST to backend
+      // 5. Save or Update in Backend
       final productService = ref.read(productServiceProvider);
-      await productService.create(payload);
-
-      // Refresh catalog list
-      ref.invalidate(productsProvider);
-
-      if (mounted) {
+      if (_editingProduct != null) {
+        await productService.update(_editingProduct!.id, payload);
+        AppSnackBar.showSuccess(context, 'Product updated successfully');
+      } else {
+        await productService.create(payload);
         AppSnackBar.showSuccess(context, 'Product created successfully');
-        context.go('/');
       }
+
+      // Reset editing and local form states
+      _cancelEditing();
+
+      // Refresh both local catalog list and global home catalog
+      ref.invalidate(productsProvider);
+      _refreshAdminProducts();
     } catch (e) {
-      if (mounted) {
-        AppSnackBar.showError(context, e.toString());
-      }
+      AppSnackBar.showError(context, e.toString());
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
+      setState(() => _isSubmitting = false);
+    }
+  }
+
+  // --- SOFT DELETE LOGIC ---
+  Future<void> _softDeleteProduct(ProductModel product) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFFDFCF7),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            const SizedBox(width: 8),
+            Text(
+              'Soft Delete Product',
+              style: TextStyle(fontFamily: 'serif', color: vgMidnight, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "${product.name}"? (This will mark the product as inactive).',
+          style: TextStyle(color: vgMidnight),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Yes, Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final productService = ref.read(productServiceProvider);
+        // Soft delete by setting isActive (is_active) to false
+        await productService.update(product.id, {'is_active': false});
+        if (mounted) {
+          AppSnackBar.showSuccess(context, 'Product deleted successfully');
+        }
+        ref.invalidate(productsProvider);
+        _refreshAdminProducts();
+      } catch (e) {
+        if (mounted) {
+          AppSnackBar.showError(context, e.toString());
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final categoriesAsync = ref.watch(categoriesProvider);
-
     return Scaffold(
       body: Stack(
         children: [
@@ -193,7 +363,7 @@ class _AdminAddProductScreenState extends ConsumerState<AdminAddProductScreen> {
             backgroundColor: Colors.transparent,
             appBar: AppBar(
               title: const Text(
-                'Add New Product',
+                'Product Panel',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -211,286 +381,491 @@ class _AdminAddProductScreenState extends ConsumerState<AdminAddProductScreen> {
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.35),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
               ),
               leading: IconButton(
                 icon: Icon(Icons.arrow_back, color: vgMidnight),
                 onPressed: () => context.go('/'),
               ),
-            ),
-            body: Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // 1. Basic Product details Section
-                  _buildSectionTitle('1. Product Information'),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.92),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _nameController,
-                          style: TextStyle(color: vgMidnight),
-                          decoration: InputDecoration(
-                            labelText: 'Product Name *',
-                            labelStyle: TextStyle(color: vgMidnight),
-                          ),
-                          validator: (val) => val == null || val.trim().isEmpty ? 'Name is required' : null,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _descController,
-                          maxLines: 3,
-                          style: TextStyle(color: vgMidnight),
-                          decoration: InputDecoration(
-                            labelText: 'Description',
-                            labelStyle: TextStyle(color: vgMidnight),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: _priceController,
-                                keyboardType: TextInputType.number,
-                                style: TextStyle(color: vgMidnight),
-                                decoration: InputDecoration(
-                                  labelText: 'Price *',
-                                  labelStyle: TextStyle(color: vgMidnight),
-                                ),
-                                validator: (val) {
-                                  if (val == null || val.trim().isEmpty) return 'Required';
-                                  final num = double.tryParse(val.trim());
-                                  if (num == null || num < 0) return 'Invalid';
-                                  return null;
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _stockController,
-                                keyboardType: TextInputType.number,
-                                style: TextStyle(color: vgMidnight),
-                                decoration: InputDecoration(
-                                  labelText: 'Stock *',
-                                  labelStyle: TextStyle(color: vgMidnight),
-                                ),
-                                validator: (val) {
-                                  if (val == null || val.trim().isEmpty) return 'Required';
-                                  final num = int.tryParse(val.trim());
-                                  if (num == null || num < 0) return 'Invalid';
-                                  return null;
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _imageUrlController,
-                          style: TextStyle(color: vgMidnight),
-                          decoration: InputDecoration(
-                            labelText: 'Main Image URL',
-                            labelStyle: TextStyle(color: vgMidnight),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 2. Category Section
-                  _buildSectionTitle('2. Product Category'),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.92),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Toggle for creating new category
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: _createNewCategory,
-                              activeColor: vgCyanSky,
-                              onChanged: (val) {
-                                setState(() {
-                                  _createNewCategory = val ?? false;
-                                });
-                              },
-                            ),
-                            Expanded(
-                              child: Text(
-                                'Create a new category instead',
-                                style: TextStyle(color: vgMidnight, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        if (_createNewCategory)
-                          TextFormField(
-                            controller: _newCategoryController,
-                            style: TextStyle(color: vgMidnight),
-                            decoration: InputDecoration(
-                              labelText: 'New Category Name *',
-                              labelStyle: TextStyle(color: vgMidnight),
-                            ),
-                            validator: (val) {
-                              if (_createNewCategory && (val == null || val.trim().isEmpty)) {
-                                return 'Category name is required';
-                              }
-                              return null;
-                            },
-                          )
-                        else
-                          categoriesAsync.when(
-                            loading: () => const LoadingView(),
-                            error: (err, _) => Text('Error loading categories: $err', style: TextStyle(color: Colors.red.shade800)),
-                            data: (categories) => DropdownButtonFormField<String>(
-                              value: _selectedCategoryId,
-                              style: TextStyle(color: vgMidnight),
-                              dropdownColor: Colors.white,
-                              decoration: InputDecoration(
-                                labelText: 'Select Category *',
-                                labelStyle: TextStyle(color: vgMidnight),
-                              ),
-                              items: categories.map((cat) {
-                                return DropdownMenuItem<String>(
-                                  value: cat.id,
-                                  child: Text(cat.name),
-                                );
-                              }).toList(),
-                              onChanged: (val) {
-                                setState(() {
-                                  _selectedCategoryId = val;
-                                });
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // 3. Additional Images Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildSectionTitle('3. Additional Images'),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
-                        onPressed: _addImageField,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_images.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'No additional images added.',
-                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontStyle: FontStyle.italic),
-                      ),
-                    )
-                  else
-                    ...List.generate(_images.length, (idx) => _buildImageField(idx)),
-                  const SizedBox(height: 20),
-
-                  // 4. Variants Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildSectionTitle('4. Product Variants'),
-                      IconButton(
-                        icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
-                        onPressed: _addVariantField,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  if (_variants.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'No product variants added.',
-                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontStyle: FontStyle.italic),
-                      ),
-                    )
-                  else
-                    ...List.generate(_variants.length, (idx) => _buildVariantField(idx)),
-
-                  const SizedBox(height: 32),
-
-                  // Submit button
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [vgCyanSky, vgMidnight],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: vgCyanSky.withOpacity(0.4),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submitProduct,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : Text(
-                              'Save Product',
-                              style: TextStyle(
-                                color: vgStarGold,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                fontFamily: 'serif',
-                              ),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
+              bottom: TabBar(
+                controller: _tabController,
+                indicatorColor: vgMidnight,
+                labelColor: vgMidnight,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'serif'),
+                unselectedLabelColor: vgMidnight.withOpacity(0.55),
+                tabs: const [
+                  Tab(icon: Icon(Icons.add_circle_outline), text: 'Add/Edit Form'),
+                  Tab(icon: Icon(Icons.inventory), text: 'Manage Catalog'),
                 ],
               ),
+            ),
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildAddEditTab(),
+                _buildManageTab(),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // --- WIDGET FOR TAB 1: ADD/EDIT FORM ---
+  Widget _buildAddEditTab() {
+    final categoriesAsync = ref.watch(categoriesProvider);
+
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildSectionTitle(_editingProduct == null ? '1. New Product Details' : '1. Edit Product Details'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  style: TextStyle(color: vgMidnight),
+                  decoration: InputDecoration(
+                    labelText: 'Product Name *',
+                    labelStyle: TextStyle(color: vgMidnight),
+                  ),
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Name is required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _descController,
+                  maxLines: 3,
+                  style: TextStyle(color: vgMidnight),
+                  decoration: InputDecoration(
+                    labelText: 'Description',
+                    labelStyle: TextStyle(color: vgMidnight),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _priceController,
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(color: vgMidnight),
+                        decoration: InputDecoration(
+                          labelText: 'Price *',
+                          labelStyle: TextStyle(color: vgMidnight),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Required';
+                          final num = double.tryParse(val.trim());
+                          if (num == null || num < 0) return 'Invalid';
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _stockController,
+                        keyboardType: TextInputType.number,
+                        style: TextStyle(color: vgMidnight),
+                        decoration: InputDecoration(
+                          labelText: 'Stock *',
+                          labelStyle: TextStyle(color: vgMidnight),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) return 'Required';
+                          final num = int.tryParse(val.trim());
+                          if (num == null || num < 0) return 'Invalid';
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _imageUrlController,
+                  style: TextStyle(color: vgMidnight),
+                  decoration: InputDecoration(
+                    labelText: 'Main Image URL',
+                    labelStyle: TextStyle(color: vgMidnight),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 2. Category Section
+          _buildSectionTitle('2. Product Category'),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _createNewCategory,
+                      activeColor: vgCyanSky,
+                      onChanged: (val) {
+                        setState(() {
+                          _createNewCategory = val ?? false;
+                        });
+                      },
+                    ),
+                    Expanded(
+                      child: Text(
+                        'Create a new category instead',
+                        style: TextStyle(color: vgMidnight, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                if (_createNewCategory)
+                  TextFormField(
+                    controller: _newCategoryController,
+                    style: TextStyle(color: vgMidnight),
+                    decoration: InputDecoration(
+                      labelText: 'New Category Name *',
+                      labelStyle: TextStyle(color: vgMidnight),
+                    ),
+                    validator: (val) {
+                      if (_createNewCategory && (val == null || val.trim().isEmpty)) {
+                        return 'Category name is required';
+                      }
+                      return null;
+                    },
+                  )
+                else
+                  categoriesAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (err, _) => Text('Error loading categories: $err', style: TextStyle(color: Colors.red.shade800)),
+                    data: (categories) => DropdownButtonFormField<String>(
+                      value: _selectedCategoryId,
+                      style: TextStyle(color: vgMidnight),
+                      dropdownColor: Colors.white,
+                      decoration: InputDecoration(
+                        labelText: 'Select Category *',
+                        labelStyle: TextStyle(color: vgMidnight),
+                      ),
+                      items: categories.map((cat) {
+                        return DropdownMenuItem<String>(
+                          value: cat.id,
+                          child: Text(cat.name),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedCategoryId = val;
+                        });
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 3. Additional Images Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSectionTitle('3. Additional Images'),
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
+                onPressed: _addImageField,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_images.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No additional images added.',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontStyle: FontStyle.italic),
+              ),
+            )
+          else
+            ...List.generate(_images.length, (idx) => _buildImageField(idx)),
+          const SizedBox(height: 20),
+
+          // 4. Variants Section
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSectionTitle('4. Product Variants'),
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: Colors.white, size: 28),
+                onPressed: _addVariantField,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_variants.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No product variants added.',
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontStyle: FontStyle.italic),
+              ),
+            )
+          else
+            ...List.generate(_variants.length, (idx) => _buildVariantField(idx)),
+
+          const SizedBox(height: 32),
+
+          // Action Buttons
+          Column(
+            children: [
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [vgCyanSky, vgMidnight],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: vgCyanSky.withOpacity(0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitProduct,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Text(
+                          _editingProduct == null ? 'Save Product' : 'Update Product',
+                          style: TextStyle(
+                            color: vgStarGold,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            fontFamily: 'serif',
+                          ),
+                        ),
+                ),
+              ),
+              if (_editingProduct != null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _cancelEditing,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: vgStarGold),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                      'Cancel Edit',
+                      style: TextStyle(
+                        color: vgStarGold,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        fontFamily: 'serif',
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
+  }
+
+  // --- WIDGET FOR TAB 2: MANAGE PRODUCTS ---
+  Widget _buildManageTab() {
+    final categoriesAsync = ref.watch(categoriesProvider);
+
+    return Column(
+      children: [
+        // Search & Filter header
+        Container(
+          padding: const EdgeInsets.all(12),
+          color: Colors.black.withOpacity(0.15),
+          child: Column(
+            children: [
+              TextField(
+                controller: _adminSearchController,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Search system products...',
+                  hintStyle: const TextStyle(color: Colors.white60),
+                  prefixIcon: const Icon(Icons.search, color: Colors.white60),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.arrow_forward, color: vgStarGold),
+                    onPressed: () {
+                      setState(() => _adminPage = 1);
+                      _refreshAdminProducts();
+                    },
+                  ),
+                ),
+                onSubmitted: (_) {
+                  setState(() => _adminPage = 1);
+                  _refreshAdminProducts();
+                },
+              ),
+              const SizedBox(height: 8),
+              // Category filter dropdown inside manage tab
+              categoriesAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+                data: (categories) => Row(
+                  children: [
+                    const Text('Category:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _adminSelectedCategory,
+                            isExpanded: true,
+                            dropdownColor: vgMidnight,
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('All Categories'),
+                              ),
+                              ...categories.map((cat) {
+                                return DropdownMenuItem<String>(
+                                  value: cat.name,
+                                  child: Text(cat.name),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              setState(() {
+                                _adminSelectedCategory = val;
+                                _adminPage = 1;
+                              });
+                              _refreshAdminProducts();
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Grid/List of items
+        Expanded(
+          child: FutureBuilder<ProductListResult>(
+            future: _adminProductsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const LoadingView();
+              }
+              if (snapshot.hasError) {
+                return ErrorView(
+                  message: snapshot.error.toString(),
+                  onRetry: _refreshAdminProducts,
+                );
+              }
+              final result = snapshot.data;
+              if (result == null || result.items.isEmpty) {
+                return const EmptyView(message: 'No products found in database.');
+              }
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: result.items.length,
+                      itemBuilder: (context, index) {
+                        final product = result.items[index];
+                        return ManageProductListItem(
+                          product: product,
+                          onEdit: _startEditing,
+                          onDelete: _softDeleteProduct,
+                          vgMidnight: vgMidnight,
+                          vgCyanSky: vgCyanSky,
+                        );
+                      },
+                    ),
+                  ),
+                  // Pagination controls
+                  if (result.meta.totalPages > 1)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      color: Colors.black.withOpacity(0.1),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            onPressed: _adminPage > 1
+                                ? () {
+                                    setState(() => _adminPage--);
+                                    _refreshAdminProducts();
+                                  }
+                                : null,
+                            icon: Icon(Icons.chevron_left, color: vgStarGold),
+                          ),
+                          Text(
+                            'Page $_adminPage / ${result.meta.totalPages}',
+                            style: TextStyle(color: vgStarGold, fontWeight: FontWeight.bold),
+                          ),
+                          IconButton(
+                            onPressed: _adminPage < result.meta.totalPages
+                                ? () {
+                                    setState(() => _adminPage++);
+                                    _refreshAdminProducts();
+                                  }
+                                : null,
+                            icon: Icon(Icons.chevron_right, color: vgStarGold),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

@@ -10,6 +10,7 @@ import '../../../providers/catalog_providers.dart';
 import '../../../providers/cart_providers.dart';
 import '../../../services/product_service.dart';
 import '../../products/widgets/product_card.dart';
+import '../widgets/draggable_chat_box.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -522,6 +523,7 @@ void dispose() {
                 ),
               ),
             ),
+            const DraggableChatBox(),
           ],
         ),
       ),
