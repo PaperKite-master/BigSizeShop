@@ -33,24 +33,12 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
 
   bool _matchesStatus(String orderStatus, String filter) {
     if (filter == 'ALL') return true;
-    final statusUpper = orderStatus.toUpperCase();
-    final filterUpper = filter.toUpperCase();
-
-    if (filterUpper == 'CANCELLED' || filterUpper == 'CANCELED') {
-      return statusUpper == 'CANCELLED' || statusUpper == 'CANCELED';
-    }
-    if (filterUpper == 'CONFIRMED') {
-      return statusUpper == 'CONFIRMED' || statusUpper == 'PROCESSING';
-    }
-    if (filterUpper == 'SHIPPING') {
-      return statusUpper == 'SHIPPING' || statusUpper == 'SHIPPED';
-    }
-    return statusUpper == filterUpper;
+    return orderStatus.toUpperCase() == filter.toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
-    final ordersAsync = ref.watch(ordersProvider);
+    final ordersAsync = ref.watch(adminOrdersProvider);
 
     return Scaffold(
       body: Stack(
@@ -103,7 +91,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
               actions: [
                 IconButton(
                   icon: Icon(Icons.refresh, color: vgMidnight),
-                  onPressed: () => ref.invalidate(ordersProvider),
+                  onPressed: () => ref.read(adminOrdersProvider.notifier).fetchAdminOrders(),
                 ),
               ],
             ),
@@ -191,7 +179,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     loading: () => const LoadingView(),
                     error: (error, _) => ErrorView(
                       message: error.toString(),
-                      onRetry: () => ref.invalidate(ordersProvider),
+                      onRetry: () => ref.read(adminOrdersProvider.notifier).fetchAdminOrders(),
                     ),
                     data: (orders) {
                       // 1. Filter orders
@@ -286,7 +274,7 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: _mapToUiStatus(order.status),
+                    value: order.status.toUpperCase(),
                     icon: Icon(Icons.arrow_drop_down, color: statusColor, size: 16),
                     style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
                     dropdownColor: Colors.white,
@@ -301,8 +289,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
                     onChanged: (newStatus) async {
                       if (newStatus != null) {
                         try {
-                          final apiStatus = _mapToApiStatus(newStatus);
-                          await ref.read(ordersProvider.notifier).updateOrderStatus(order.id, apiStatus);
+                          await ref
+                              .read(adminOrdersProvider.notifier)
+                              .updateOrderStatus(order.id, newStatus);
                           if (context.mounted) {
                             AppSnackBar.showSuccess(context, 'Order status updated to $newStatus');
                           }
@@ -436,21 +425,6 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
     );
   }
 
-  String _mapToUiStatus(String apiStatus) {
-    final upper = apiStatus.toUpperCase();
-    if (upper == 'PROCESSING') return 'CONFIRMED';
-    if (upper == 'SHIPPED') return 'SHIPPING';
-    if (upper == 'CANCELED') return 'CANCELLED';
-    return upper;
-  }
-
-  String _mapToApiStatus(String uiStatus) {
-    final upper = uiStatus.toUpperCase();
-    if (upper == 'CONFIRMED') return 'PROCESSING';
-    if (upper == 'SHIPPING') return 'SHIPPED';
-    return upper;
-  }
-
   Color _getStatusColor(String status) {
     switch (status.toUpperCase()) {
       case 'PENDING':
@@ -458,12 +432,9 @@ class _AdminOrdersScreenState extends ConsumerState<AdminOrdersScreen> {
       case 'DELIVERED':
         return vgCypressGreen;
       case 'CANCELLED':
-      case 'CANCELED':
         return Colors.red.shade700;
-      case 'SHIPPED':
       case 'SHIPPING':
         return Colors.blue.shade700;
-      case 'PROCESSING':
       case 'CONFIRMED':
         return Colors.purple.shade700;
       default:

@@ -178,7 +178,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
     final int totalItems = cartState.maybeWhen(
       data: (cartData) {
         // ✨ ĐÃ SỬA: Vì cartData đã là List<CartItemModel>, kiểm tra rỗng trực tiếp luôn
-        if (cartData == null || cartData.isEmpty) return 0;
+                                if (cartData.isEmpty) return 0;
         
         // Cách 1: Nếu muốn cộng tổng số lượng (Ví dụ: 2 quần + 1 áo = 3)
         return cartData.fold(0, (sum, item) => sum + item.quantity);
@@ -214,19 +214,16 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                   onRetry: () => ref.invalidate(productDetailProvider(widget.productId)),
                 ),
                 data: (product) {
-                  if (product.variants.isNotEmpty) {
-                    _selectedVariantId ??= product.variants.first.id;
-                  }
                   final imageUrl = product.displayImage;
-
-                  bool isOutOfStock = product.stock == 0; 
-                  if (product.variants.isNotEmpty && _selectedVariantId != null) {
-                    final variant = product.variants.firstWhere(
+                  final selectedVariant = product.variants.isEmpty
+                      ? null
+                      : product.variants.firstWhere(
                       (v) => v.id == _selectedVariantId,
                       orElse: () => product.variants.first,
                     );
-                    isOutOfStock = variant.stock == 0;
-                  }
+                  final selectedPrice = selectedVariant?.price ?? product.price;
+                  final selectedStock = selectedVariant?.stock ?? product.stock;
+                  final isOutOfStock = selectedStock == 0;
 
                   // --- 🖼️ COMPONENT HÌNH ẢNH ---
                   Widget productImage = imageUrl.isNotEmpty
@@ -295,7 +292,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                           end: Alignment.centerRight,
                         ).createShader(bounds),
                         child: Text(
-                          _localFormatCurrency(product.price),
+                          _localFormatCurrency(selectedPrice),
                           style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, fontFamily: 'serif'),
                         ),
                       ),
@@ -304,7 +301,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> with 
                       Row(
                         children: [
                           Text(
-                            'Stock: ${product.stock}',
+                            'Stock: $selectedStock',
                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontFamily: 'serif', fontSize: 18, shadows: [Shadow(blurRadius: 5, color: Colors.black45)]),
                           ),
                           if (product.category != null) ...[
@@ -470,7 +467,7 @@ Container(
               await ref.read(cartControllerProvider.notifier).addToCart(
                 productId: product.id,
                 quantity: 1,
-                variantId: _selectedVariantId,
+                variantId: selectedVariant?.id,
               );
 
               if (!mounted) return;

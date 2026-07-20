@@ -8,6 +8,7 @@ const CART_INCLUDE = {
       price: true,
       imageUrl: true,
       stock: true,
+      is_active: true,
     }
   },
   product_variants: true,
@@ -21,13 +22,12 @@ async function findByUserId(userId) {
   });
 }
 
-async function findUniqueItem(userId, productId) {
-  return prisma.cartItem.findUnique({
+async function findUniqueItem(userId, productId, variantId = null) {
+  return prisma.cartItem.findFirst({
     where: {
-      userId_productId: {
-        userId,
-        productId,
-      },
+      userId,
+      productId,
+      variant_id: variantId,
     },
     include: CART_INCLUDE,
   });

@@ -34,35 +34,40 @@ async function addItem(userId, payload) {
     throw new AppError('Product not found', 404);
   }
 
-  // Check overall product stock
-  if (product.stock < data.quantity) {
-    throw new AppError('Not enough stock available', 400);
+  if (product.is_active !== true) {
+    throw new AppError('Product is not available', 400);
   }
 
-  // If using a variant, check variant stock
+  let availableStock = product.stock ?? 0;
   if (data.variantId) {
     const variant = product.product_variants.find(v => v.id === data.variantId);
-    if (!variant) {
+    if (!variant || variant.product_id !== product.id) {
       throw new AppError('Variant not found', 404);
     }
-    if (variant.stock < data.quantity) {
-      throw new AppError('Not enough stock for this variant', 400);
-    }
+    availableStock = variant.stock ?? 0;
   }
 
-  // Check if item already exists in cart for this user
-  const existingItem = await cartRepository.findUniqueItem(userId, data.productId);
+  if (availableStock < data.quantity) {
+    throw new AppError(
+      data.variantId ? 'Not enough stock for this variant' : 'Not enough stock available',
+      400,
+    );
+  }
+
+  const existingItem = await cartRepository.findUniqueItem(
+    userId,
+    data.productId,
+    data.variantId ?? null,
+  );
   
   if (existingItem) {
-    // Increment quantity
     const newQuantity = existingItem.quantity + data.quantity;
     
-    // Check stock again for new quantity
-    if (data.variantId) {
-      const variant = product.product_variants.find(v => v.id === data.variantId);
-      if (variant.stock < newQuantity) throw new AppError('Not enough stock for this variant', 400);
-    } else {
-      if (product.stock < newQuantity) throw new AppError('Not enough stock available', 400);
+    if (availableStock < newQuantity) {
+      throw new AppError(
+        data.variantId ? 'Not enough stock for this variant' : 'Not enough stock available',
+        400,
+      );
     }
 
     return cartRepository.update(existingItem.id, { quantity: newQuantity });
@@ -85,17 +90,21 @@ async function updateItemQuantity(userId, cartItemId, payload) {
     throw new AppError('Cart item not found', 404);
   }
 
-  // Check stock
   const product = cartItem.products;
+  if (product.is_active !== true) {
+    throw new AppError('Product is not available', 400);
+  }
+
   if (cartItem.variant_id) {
-    // Assuming product_variants is populated in CART_INCLUDE (it is, but we need the variant stock)
-    // For a robust check, we might need to fetch the variant again if CART_INCLUDE doesn't give us all variants
-    const variant = cartItem.product_variants; 
-    if (variant && variant.stock < data.quantity) {
+    const variant = cartItem.product_variants;
+    if (!variant || variant.product_id !== product.id) {
+      throw new AppError('Variant does not belong to this product', 400);
+    }
+    if ((variant.stock ?? 0) < data.quantity) {
       throw new AppError('Not enough stock for this variant', 400);
     }
   } else {
-    if (product.stock < data.quantity) {
+    if ((product.stock ?? 0) < data.quantity) {
       throw new AppError('Not enough stock available', 400);
     }
   }

@@ -44,7 +44,7 @@ class AddressNotifier extends StateNotifier<AsyncValue<List<AddressModel>>> {
     });
   }
 
-  Future<void> addAddress({
+  Future<AddressModel> addAddress({
     required String receiverName,
     required String receiverPhone,
     String? province,
@@ -53,8 +53,7 @@ class AddressNotifier extends StateNotifier<AsyncValue<List<AddressModel>>> {
     required String streetAddress,
     bool isDefault = false,
   }) async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    try {
       final newAddress = AddressModel(
         id: '',
         userId: '',
@@ -66,9 +65,14 @@ class AddressNotifier extends StateNotifier<AsyncValue<List<AddressModel>>> {
         streetAddress: streetAddress,
         isDefault: isDefault,
       );
-      await _addressService.create(newAddress);
-      return await _addressService.list();
-    });
+      final created = await _addressService.create(newAddress);
+      final addresses = await _addressService.list();
+      state = AsyncValue.data(addresses);
+      return created;
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+      rethrow;
+    }
   }
 
   Future<void> deleteAddress(String id) async {

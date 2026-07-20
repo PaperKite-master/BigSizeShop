@@ -1,20 +1,28 @@
 const { AppError } = require('../../../common/errors/app-error');
 
+function parseQuantity(value) {
+  const quantity = Number(value);
+
+  if (!Number.isFinite(quantity) || !Number.isInteger(quantity) || quantity <= 0) {
+    throw new AppError('Quantity must be a positive integer', 400);
+  }
+
+  return quantity;
+}
+
 function createCartItemDto(payload) {
   const { productId, quantity = 1, variantId } = payload;
 
-  if (!productId) {
+  if (typeof productId !== 'string' || !productId.trim()) {
     throw new AppError('Product ID is required', 400);
   }
 
-  if (quantity < 1) {
-    throw new AppError('Quantity must be at least 1', 400);
-  }
-
   return {
-    productId,
-    quantity: parseInt(quantity, 10),
-    variantId,
+    productId: productId.trim(),
+    quantity: parseQuantity(quantity),
+    variantId: typeof variantId === 'string' && variantId.trim()
+      ? variantId.trim()
+      : null,
   };
 }
 
@@ -25,12 +33,8 @@ function updateCartItemDto(payload) {
     throw new AppError('Quantity is required', 400);
   }
 
-  if (quantity < 1) {
-    throw new AppError('Quantity must be at least 1', 400);
-  }
-
   return {
-    quantity: parseInt(quantity, 10),
+    quantity: parseQuantity(quantity),
   };
 }
 

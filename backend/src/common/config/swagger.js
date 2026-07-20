@@ -18,6 +18,7 @@ const swaggerSpec = {
     { name: 'Products', description: 'Product catalog management' },
     { name: 'Cart', description: 'Shopping cart management' },
     { name: 'Orders', description: 'Order management and checkout' },
+    { name: 'Payments', description: 'VNPay payment initiation and callbacks' },
     { name: 'Notifications', description: 'Push notification and broadcast management' },
     { name: 'Stores', description: 'Store locations with coordinates' },
   ],
@@ -416,16 +417,28 @@ const swaggerSpec = {
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['address'],
+                required: ['addressId', 'paymentMethod'],
                 properties: {
-                  address: { type: 'string' },
-                  paymentMethod: { type: 'string', default: 'COD' }
+                  addressId: { type: 'string', format: 'uuid' },
+                  address: { type: 'string', description: 'Legacy address snapshot input' },
+                  paymentMethod: { type: 'string', enum: ['COD', 'BANK'], default: 'COD' }
                 }
               }
             }
           }
         },
         responses: { 201: { description: 'Order created' } }
+      }
+    },
+    '/orders/admin': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get all orders (admin)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'All orders retrieved newest first' },
+          403: { description: 'Forbidden' }
+        }
       }
     },
     '/orders/{id}/cancel': {
@@ -453,7 +466,7 @@ const swaggerSpec = {
                 type: 'object',
                 required: ['status'],
                 properties: {
-                  status: { type: 'string', enum: ['PENDING', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'], example: 'SHIPPED' }
+                  status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED'], example: 'SHIPPING' }
                 }
               }
             }
@@ -478,6 +491,53 @@ const swaggerSpec = {
           401: { description: 'Unauthorized' },
           404: { description: 'Order not found' }
         }
+      }
+    },
+    '/payments/vnpay/create': {
+      post: {
+        tags: ['Payments'],
+        summary: 'Create a VNPay Sandbox payment URL',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['orderId'],
+                properties: {
+                  orderId: { type: 'string', format: 'uuid' }
+                }
+              }
+            }
+          }
+        },
+        responses: { 200: { description: 'Signed payment URL created' } }
+      }
+    },
+    '/payments/vnpay/return': {
+      get: {
+        tags: ['Payments'],
+        summary: 'VNPay browser return callback',
+        responses: { 302: { description: 'Redirect to the configured app deep link' } }
+      }
+    },
+    '/payments/vnpay/ipn': {
+      get: {
+        tags: ['Payments'],
+        summary: 'VNPay server-to-server IPN callback',
+        responses: { 200: { description: 'VNPay RspCode and Message result' } }
+      }
+    },
+    '/payments/orders/{orderId}/status': {
+      get: {
+        tags: ['Payments'],
+        summary: 'Get payment status for an owned order',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }
+        ],
+        responses: { 200: { description: 'Current payment status' } }
       }
     },
     '/notifications/broadcast': {
@@ -718,10 +778,12 @@ const swaggerSpec = {
           id: { type: 'string', format: 'uuid' },
           userId: { type: 'string', format: 'uuid' },
           totalPrice: { type: 'number', format: 'decimal' },
-          status: { type: 'string', default: 'PENDING' },
+          status: { type: 'string', enum: ['PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED'], default: 'PENDING' },
           address: { type: 'string' },
           paymentMethod: { type: 'string', nullable: true },
           paymentStatus: { type: 'string', default: 'UNPAID', nullable: true },
+          paymentTransactionId: { type: 'string', nullable: true },
+          paidAt: { type: 'string', format: 'date-time', nullable: true },
           createdAt: { type: 'string', format: 'date-time', nullable: true },
           updated_at: { type: 'string', format: 'date-time', nullable: true },
         },

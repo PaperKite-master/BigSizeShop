@@ -83,7 +83,8 @@ async function openChat(jwtUser) {
     );
   }
 
-  const chat = await chatRepository.createChat(user.id);
+  const existingChat = await chatRepository.findOpenChatForCustomer(user.id);
+  const chat = existingChat || await chatRepository.createChat(user.id);
   return formatChat({ ...chat, messages: [] });
 }
 

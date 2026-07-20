@@ -46,8 +46,11 @@ class OrderModel {
     required this.status,
     required this.address,
     required this.paymentMethod,
+    required this.paymentStatus,
     required this.createdAt,
     required this.orderItems,
+    this.paymentTransactionId,
+    this.paidAt,
   });
 
   final String id;
@@ -56,12 +59,16 @@ class OrderModel {
   final String status;
   final String address;
   final String paymentMethod;
+  final String paymentStatus;
+  final String? paymentTransactionId;
+  final DateTime? paidAt;
   final DateTime createdAt;
   final List<OrderItemModel> orderItems;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     // Prisma returns camelCase for fields with @map, and original name for relations
     final itemsJson = (json['order_items'] as List<dynamic>?) ?? [];
+    final paidAtValue = json['paidAt'] ?? json['paid_at'];
     return OrderModel(
       id: json['id'] as String,
       // Support both camelCase (Prisma) and snake_case (raw SQL fallback)
@@ -70,6 +77,11 @@ class OrderModel {
       status: json['status'] as String? ?? 'PENDING',
       address: json['address'] as String,
       paymentMethod: (json['paymentMethod'] ?? json['payment_method']) as String? ?? 'COD',
+      paymentStatus:
+          (json['paymentStatus'] ?? json['payment_status']) as String? ?? 'PENDING',
+      paymentTransactionId:
+          (json['paymentTransactionId'] ?? json['payment_transaction_id']) as String?,
+      paidAt: paidAtValue is String ? DateTime.tryParse(paidAtValue) : null,
       createdAt: DateTime.parse((json['createdAt'] ?? json['created_at']) as String),
       orderItems: itemsJson
           .map((item) => OrderItemModel.fromJson(item as Map<String, dynamic>))

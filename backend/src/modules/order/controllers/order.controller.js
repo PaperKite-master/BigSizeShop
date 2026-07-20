@@ -28,6 +28,15 @@ const getUserOrders = asyncHandler(async (req, res) => {
   });
 });
 
+const getAdminOrders = asyncHandler(async (req, res) => {
+  const result = await orderService.getAdminOrders();
+
+  res.json({
+    message: 'Orders retrieved successfully',
+    data: result,
+  });
+});
+
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
   const result = await orderService.updateOrderStatus(req.params.id, status);
@@ -42,5 +51,6 @@ module.exports = {
   createOrder,
   cancelOrder,
   getUserOrders,
+  getAdminOrders,
   updateOrderStatus,
 };

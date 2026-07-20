@@ -5,14 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../providers/cart_providers.dart';
 import '../../../providers/order_providers.dart';
+import '../models/checkout_details.dart';
 
 class OrderConfirmationScreen extends ConsumerStatefulWidget {
   const OrderConfirmationScreen({
     super.key,
-    required this.paymentMethod,
+    this.details,
   });
 
-  final String paymentMethod;
+  final CheckoutDetails? details;
 
   @override
   ConsumerState<OrderConfirmationScreen> createState() => _OrderConfirmationScreenState();
@@ -27,14 +28,30 @@ class _OrderConfirmationScreenState extends ConsumerState<OrderConfirmationScree
   bool _isSubmitting = false;
 
   void _confirmAndPlaceOrder(double subtotal) async {
+    final details = widget.details;
+    if (details == null) {
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
-      // Place the order on the backend with 'string' as the address
-      await ref.read(ordersProvider.notifier).placeOrder(
-            addressText: 'string',
-            paymentMethod: widget.paymentMethod,
+      final order = await ref.read(ordersProvider.notifier).placeOrder(
+            addressId: details.addressId,
+            paymentMethod: details.paymentMethod,
           );
+
+      if (details.paymentMethod.toUpperCase() == 'BANK') {
+        if (mounted) {
+          context.go(
+            Uri(
+              path: '/payment',
+              queryParameters: {'orderId': order.id, 'start': 'true'},
+            ).toString(),
+          );
+        }
+        return;
+      }
 
       // Show Success Dialog
       if (mounted) {
@@ -90,6 +107,35 @@ class _OrderConfirmationScreenState extends ConsumerState<OrderConfirmationScree
 
   @override
   Widget build(BuildContext context) {
+    final details = widget.details;
+    if (details == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Confirm Order')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.info_outline, size: 48),
+                const SizedBox(height: 16),
+                const Text(
+                  'Checkout details are missing. Please return to checkout and select a delivery address.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                FilledButton.icon(
+                  onPressed: () => context.go('/checkout'),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Back to checkout'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final cartAsync = ref.watch(cartControllerProvider);
 
     return Scaffold(
@@ -190,11 +236,14 @@ class _OrderConfirmationScreenState extends ConsumerState<OrderConfirmationScree
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text('Address:', style: TextStyle(color: Colors.white70)),
-                                    Text(
-                                      'string',
-                                      style: TextStyle(
-                                        color: vgStarGold,
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Text(
+                                        details.addressText,
+                                        textAlign: TextAlign.end,
+                                        style: TextStyle(
+                                          color: vgStarGold,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -205,7 +254,7 @@ class _OrderConfirmationScreenState extends ConsumerState<OrderConfirmationScree
                                   children: [
                                     const Text('Payment Method:', style: TextStyle(color: Colors.white70)),
                                     Text(
-                                      widget.paymentMethod,
+                                      details.paymentMethod,
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.bold,

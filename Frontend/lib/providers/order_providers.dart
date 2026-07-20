@@ -14,6 +14,11 @@ final ordersProvider =
   return OrderNotifier(ref);
 });
 
+final adminOrdersProvider =
+    StateNotifierProvider<AdminOrderNotifier, AsyncValue<List<OrderModel>>>((ref) {
+  return AdminOrderNotifier(ref);
+});
+
 class OrderNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
   OrderNotifier(this._ref) : super(const AsyncValue.loading()) {
     _ref.listen(authControllerProvider, (previous, next) {
@@ -46,8 +51,7 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
   }
 
   Future<OrderModel> placeOrder({
-    String? addressId,
-    String? addressText,
+    required String addressId,
     required String paymentMethod,
   }) async {
     // We don't want to change the whole list state to loading before order placement
@@ -55,7 +59,6 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
     try {
       final order = await _orderService.placeOrder(
         addressId: addressId,
-        addressText: addressText,
         paymentMethod: paymentMethod,
       );
 
@@ -89,5 +92,39 @@ class OrderNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
     } catch (e) {
       rethrow;
     }
+  }
+}
+
+class AdminOrderNotifier extends StateNotifier<AsyncValue<List<OrderModel>>> {
+  AdminOrderNotifier(this._ref) : super(const AsyncValue.loading()) {
+    _ref.listen(authControllerProvider, (previous, next) {
+      next.whenData((user) {
+        if (user?.isAdmin ?? false) {
+          fetchAdminOrders();
+        } else {
+          state = const AsyncValue.data([]);
+        }
+      });
+    });
+
+    if (_ref.read(authControllerProvider).value?.isAdmin ?? false) {
+      fetchAdminOrders();
+    } else {
+      state = const AsyncValue.data([]);
+    }
+  }
+
+  final Ref _ref;
+
+  OrderService get _orderService => _ref.read(orderServiceProvider);
+
+  Future<void> fetchAdminOrders() async {
+    state = const AsyncValue.loading();
+    state = await AsyncValue.guard(_orderService.getAdminOrders);
+  }
+
+  Future<void> updateOrderStatus(String orderId, String status) async {
+    await _orderService.updateOrderStatus(orderId, status);
+    await fetchAdminOrders();
   }
 }

@@ -32,6 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
 
+    final returnTo = GoRouterState.of(context).uri.queryParameters['from'];
     setState(() => _isSubmitting = true);
 
     try {
@@ -55,7 +56,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
 
       AppSnackBar.showSuccess(context, 'Welcome back!');
-      context.go('/');
+      context.go(
+        returnTo != null && returnTo.startsWith('/') ? returnTo : '/',
+      );
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

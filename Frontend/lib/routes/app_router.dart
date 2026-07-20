@@ -1,5 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/cart/models/checkout_details.dart';
 import '../features/admin/screens/admin_screens.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/profile_screen.dart';
@@ -13,11 +15,56 @@ import '../features/cart/screens/order_confirmation_screen.dart';
 import '../features/admin/screens/admin_orders_screen.dart';
 import '../features/admin/screens/admin_add_product_screen.dart';
 import '../features/chat/screens/chat_screen.dart';
+import '../features/payments/screens/payment_result_screen.dart';
 import '../features/store/screens/store_map_screen.dart';
+import '../providers/app_providers.dart';
 
-class AppRouter {
-  static final GoRouter router = GoRouter(
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final router = GoRouter(
     initialLocation: '/',
+    redirect: (context, state) {
+      final authState = ref.read(authControllerProvider);
+      if (authState.isLoading) {
+        return null;
+      }
+
+      final user = authState.value;
+      final path = state.uri.path;
+      final isAuthRoute = path == '/login' || path == '/register';
+      final requiresAuthentication = path == '/profile' ||
+          path == '/cart' ||
+          path == '/checkout' ||
+          path == '/order-confirm' ||
+          path == '/payment' ||
+          path == '/orders' ||
+          path == '/chat' ||
+          path.startsWith('/chat/') ||
+          path == '/admin' ||
+          path.startsWith('/admin/');
+
+      if (user == null && requiresAuthentication) {
+        final returnTo = Uri.encodeComponent(state.uri.toString());
+        return '/login?from=$returnTo';
+      }
+
+      if (user != null && isAuthRoute) {
+        final returnTo = state.uri.queryParameters['from'];
+        if (returnTo != null &&
+            returnTo.startsWith('/') &&
+            !returnTo.startsWith('/login') &&
+            !returnTo.startsWith('/register')) {
+          return returnTo;
+        }
+        return '/';
+      }
+
+      if ((path == '/admin' || path.startsWith('/admin/')) &&
+          !(user?.isAdmin ?? false)) {
+        return '/';
+      }
+
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/',
@@ -50,9 +97,17 @@ class AppRouter {
       GoRoute(
         path: '/order-confirm',
         builder: (context, state) {
-          final paymentMethod = state.uri.queryParameters['paymentMethod'] ?? 'COD';
-          return OrderConfirmationScreen(paymentMethod: paymentMethod);
+          final details =
+              state.extra is CheckoutDetails ? state.extra! as CheckoutDetails : null;
+          return OrderConfirmationScreen(details: details);
         },
+      ),
+      GoRoute(
+        path: '/payment',
+        builder: (context, state) => PaymentResultScreen(
+          orderId: state.uri.queryParameters['orderId'],
+          startPayment: state.uri.queryParameters['start'] == 'true',
+        ),
       ),
       GoRoute(
         path: '/products/:id',
@@ -96,4 +151,8 @@ class AppRouter {
       ),
     ],
   );
-}
+
+  ref.listen(authControllerProvider, (previous, next) => router.refresh());
+  ref.onDispose(router.dispose);
+  return router;
+});

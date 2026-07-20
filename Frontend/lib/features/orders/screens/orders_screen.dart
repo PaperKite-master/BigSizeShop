@@ -24,7 +24,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -96,7 +96,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                 tabs: const [
                   Tab(text: 'All'),
                   Tab(text: 'Pending'),
-                  Tab(text: 'Shipped'),
+                  Tab(text: 'Confirmed'),
+                  Tab(text: 'Shipping'),
                   Tab(text: 'Delivered'),
                   Tab(text: 'Cancelled'),
                 ],
@@ -118,7 +119,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
 
                 // Filter lists
                 final pendingOrders = orders.where((o) => o.status.toUpperCase() == 'PENDING').toList();
-                final shippedOrders = orders.where((o) => o.status.toUpperCase() == 'SHIPPED').toList();
+                final confirmedOrders =
+                    orders.where((o) => o.status.toUpperCase() == 'CONFIRMED').toList();
+                final shippingOrders =
+                    orders.where((o) => o.status.toUpperCase() == 'SHIPPING').toList();
                 final deliveredOrders = orders.where((o) => o.status.toUpperCase() == 'DELIVERED').toList();
                 final cancelledOrders = orders.where((o) => o.status.toUpperCase() == 'CANCELLED').toList();
 
@@ -127,7 +131,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                   children: [
                     _buildOrdersList(orders),
                     _buildOrdersList(pendingOrders),
-                    _buildOrdersList(shippedOrders),
+                    _buildOrdersList(confirmedOrders),
+                    _buildOrdersList(shippingOrders),
                     _buildOrdersList(deliveredOrders),
                     _buildOrdersList(cancelledOrders),
                   ],
@@ -282,6 +287,19 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
                     'Payment: ${order.paymentMethod}',
                     style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
                   ),
+                  if (order.paymentMethod.toUpperCase() == 'BANK') ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Payment status: ${order.paymentStatus}',
+                      style: TextStyle(
+                        color: order.paymentStatus.toUpperCase() == 'PAID'
+                            ? Colors.green.shade700
+                            : Colors.orange.shade800,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 2),
                   SizedBox(
                     width: MediaQuery.of(context).size.width * 0.5,
@@ -398,8 +416,10 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> with SingleTickerPr
         return vgCypressGreen;
       case 'CANCELLED':
         return Colors.red.shade700;
-      case 'SHIPPED':
+      case 'SHIPPING':
         return Colors.blue.shade700;
+      case 'CONFIRMED':
+        return Colors.purple.shade700;
       default:
         return Colors.grey.shade700;
     }

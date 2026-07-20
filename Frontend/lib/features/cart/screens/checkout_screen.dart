@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/app_widgets.dart';
+import '../../../models/address_model.dart';
 import '../../../providers/address_providers.dart';
 import '../../../providers/cart_providers.dart';
-import '../../../providers/order_providers.dart';
+import '../models/checkout_details.dart';
 
 class CheckoutScreen extends ConsumerStatefulWidget {
   const CheckoutScreen({super.key});
@@ -43,8 +44,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     super.dispose();
   }
 
-  void _openAddAddressDialog() {
-    // Clear fields
+  Future<void> _openAddAddressDialog() async {
     _nameController.clear();
     _phoneController.clear();
     _provinceController.clear();
@@ -53,10 +53,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
     _streetController.clear();
     _isDefaultAddress = false;
 
-    showDialog(
+    final createdAddress = await showDialog<AddressModel>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
+      builder: (dialogContext) {
+        var isSaving = false;
+        String? errorMessage;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
           backgroundColor: const Color(0xFFF8F9FA),
           title: Text(
             'Add New Address',
@@ -101,50 +105,88 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   title: const Text('Set as default address'),
                   value: _isDefaultAddress,
                   activeColor: vgCyanSky,
-                  onChanged: (val) {
-                    setDialogState(() {
-                      _isDefaultAddress = val ?? false;
-                    });
-                  },
+                  onChanged: isSaving
+                      ? null
+                      : (value) {
+                          setDialogState(() {
+                            _isDefaultAddress = value ?? false;
+                          });
+                        },
                 ),
+                if (errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                  ),
               ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
-                if (_nameController.text.trim().isEmpty ||
-                    _phoneController.text.trim().isEmpty ||
-                    _streetController.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please fill all required fields (*)')),
-                  );
-                  return;
-                }
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (_nameController.text.trim().isEmpty ||
+                          _phoneController.text.trim().isEmpty ||
+                          _streetController.text.trim().isEmpty) {
+                        setDialogState(() {
+                          errorMessage = 'Please fill all required fields (*).';
+                        });
+                        return;
+                      }
 
-                ref.read(addressesProvider.notifier).addAddress(
-                      receiverName: _nameController.text.trim(),
-                      receiverPhone: _phoneController.text.trim(),
-                      province: _provinceController.text.trim().isEmpty ? null : _provinceController.text.trim(),
-                      district: _districtController.text.trim().isEmpty ? null : _districtController.text.trim(),
-                      ward: _wardController.text.trim().isEmpty ? null : _wardController.text.trim(),
-                      streetAddress: _streetController.text.trim(),
-                      isDefault: _isDefaultAddress,
-                    );
+                      setDialogState(() {
+                        isSaving = true;
+                        errorMessage = null;
+                      });
 
-                Navigator.pop(context);
-              },
+                      try {
+                        final address = await ref.read(addressesProvider.notifier).addAddress(
+                              receiverName: _nameController.text.trim(),
+                              receiverPhone: _phoneController.text.trim(),
+                              province: _provinceController.text.trim().isEmpty ? null : _provinceController.text.trim(),
+                              district: _districtController.text.trim().isEmpty ? null : _districtController.text.trim(),
+                              ward: _wardController.text.trim().isEmpty ? null : _wardController.text.trim(),
+                              streetAddress: _streetController.text.trim(),
+                              isDefault: _isDefaultAddress,
+                            );
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext, address);
+                        }
+                      } catch (error) {
+                        if (dialogContext.mounted) {
+                          setDialogState(() {
+                            isSaving = false;
+                            errorMessage = error.toString();
+                          });
+                        }
+                      }
+                    },
               style: ElevatedButton.styleFrom(backgroundColor: vgCyanSky, foregroundColor: Colors.white),
-              child: const Text('Save'),
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Save'),
             ),
           ],
         ),
-      ),
+        );
+      },
     );
+
+    if (createdAddress != null && mounted) {
+      setState(() => _selectedAddressId = createdAddress.id);
+    }
   }
 
 
@@ -153,21 +195,6 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   Widget build(BuildContext context) {
     final cartAsync = ref.watch(cartControllerProvider);
     final addressesAsync = ref.watch(addressesProvider);
-
-    // Set default selected address ID when addresses list is resolved
-    addressesAsync.whenData((addresses) {
-      if (_selectedAddressId == null && addresses.isNotEmpty) {
-        final def = addresses.where((a) => a.isDefault).toList();
-        final defaultId = def.isNotEmpty ? def.first.id : addresses.first.id;
-        Future.microtask(() {
-          if (mounted && _selectedAddressId == null) {
-            setState(() {
-              _selectedAddressId = defaultId;
-            });
-          }
-        });
-      }
-    });
 
     return Scaffold(
       body: Stack(
@@ -269,10 +296,20 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                 );
                               }
 
+                              final selectedAddressId = addresses.any(
+                                (address) => address.id == _selectedAddressId,
+                              )
+                                  ? _selectedAddressId
+                                  : addresses
+                                      .where((address) => address.isDefault)
+                                      .map((address) => address.id)
+                                      .firstOrNull ??
+                                      addresses.first.id;
+
                               return Column(
                                 children: [
                                   ...addresses.map((address) {
-                                    final isSelected = _selectedAddressId == address.id;
+                                    final isSelected = selectedAddressId == address.id;
                                     return GestureDetector(
                                       onTap: () {
                                         setState(() {
@@ -294,7 +331,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                                           children: [
                                             Radio<String>(
                                               value: address.id,
-                                              groupValue: _selectedAddressId,
+                                              groupValue: selectedAddressId,
                                               activeColor: vgCyanSky,
                                               onChanged: (val) {
                                                 setState(() {
@@ -556,7 +593,35 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 ],
               ),
               child: ElevatedButton(
-                onPressed: () => context.go('/order-confirm?paymentMethod=$_selectedPaymentMethod'),
+                onPressed: () {
+                  final addresses = ref.read(addressesProvider).value ?? [];
+                  if (addresses.isEmpty) {
+                    AppSnackBar.showError(
+                      context,
+                      'Please add and select a delivery address.',
+                    );
+                    return;
+                  }
+
+                  final selectedAddress = addresses
+                      .where((address) => address.id == _selectedAddressId)
+                      .firstOrNull;
+                  final address = selectedAddress ??
+                      addresses
+                          .where((address) => address.isDefault)
+                          .firstOrNull ??
+                      addresses.first;
+
+                  context.go(
+                    '/order-confirm',
+                    extra: CheckoutDetails(
+                      addressId: address.id,
+                      addressText:
+                          '${address.receiverName} (${address.receiverPhone}) — ${address.fullAddressText}',
+                      paymentMethod: _selectedPaymentMethod,
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,

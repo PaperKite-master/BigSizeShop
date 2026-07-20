@@ -1,4 +1,5 @@
 const { prisma } = require('../../../common/config/prisma');
+const { AppError } = require('../../../common/errors/app-error');
 
 async function findByIdAndUserId(id, userId) {
   return prisma.order.findFirst({
@@ -80,9 +81,16 @@ async function createOrderFromCart(userId, orderData, cartItems, totalPrice) {
 
     // 3. Reduce stock for each product/variant
     for (const item of cartItems) {
+      let result;
+
       if (item.variant_id) {
-        await tx.product_variants.update({
-          where: { id: item.variant_id },
+        result = await tx.product_variants.updateMany({
+          where: {
+            id: item.variant_id,
+            product_id: item.productId,
+            stock: { gte: item.quantity },
+            products: { is_active: true },
+          },
           data: {
             stock: {
               decrement: item.quantity
@@ -90,14 +98,22 @@ async function createOrderFromCart(userId, orderData, cartItems, totalPrice) {
           }
         });
       } else {
-        await tx.product.update({
-          where: { id: item.productId },
+        result = await tx.product.updateMany({
+          where: {
+            id: item.productId,
+            is_active: true,
+            stock: { gte: item.quantity },
+          },
           data: {
             stock: {
               decrement: item.quantity
             }
           }
         });
+      }
+
+      if (result.count !== 1) {
+        throw new AppError('Product is unavailable or has insufficient stock', 400);
       }
     }
 
@@ -222,6 +238,33 @@ async function findManyByUserId(userId) {
   });
 }
 
+async function findManyForAdmin() {
+  return prisma.order.findMany({
+    include: {
+      users: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          avatar: true,
+          role: true,
+        },
+      },
+      order_items: {
+        include: {
+          products: true,
+          product_variants: true,
+        },
+      },
+      order_status_logs: {
+        orderBy: { created_at: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 async function findById(id) {
   return prisma.order.findUnique({
     where: { id },
@@ -241,5 +284,6 @@ module.exports = {
   cancelOrderAndRestoreStock,
   updateStatusAndRestoreStock,
   findManyByUserId,
+  findManyForAdmin,
   findById,
 };

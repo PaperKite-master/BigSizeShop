@@ -1,8 +1,11 @@
 const { AppError } = require('../../../common/errors/app-error');
 const orderRepository = require('../repositories/order.repository');
 const cartService = require('../../cart/services/cart.service');
+const addressRepository = require('../../address/repositories/address.repository');
 const { createOrderDto } = require('../dto/order.dto');
 const { sendPushNotification } = require('../../notification/services/notification.service');
+
+const SHIPPING_FEE = 30000;
 
 const VALID_TRANSITIONS = {
   'PENDING': ['CONFIRMED', 'CANCELLED'],
@@ -14,6 +17,21 @@ const VALID_TRANSITIONS = {
 
 async function createOrder(userId, payload) {
   const data = createOrderDto(payload);
+
+  if (data.addressId) {
+    const address = await addressRepository.findByIdAndUserId(data.addressId, userId);
+    if (!address) {
+      throw new AppError('Delivery address not found', 404);
+    }
+
+    data.address = [
+      `${address.receiver_name} (${address.receiver_phone})`,
+      address.street_address,
+      address.ward,
+      address.district,
+      address.province,
+    ].filter(Boolean).join(', ');
+  }
   
   // Get cart
   const cart = await cartService.getCart(userId);
@@ -25,14 +43,22 @@ async function createOrder(userId, payload) {
   // Double check stock for all items
   for (const item of cart.items) {
     const product = item.products;
+
+    if (!product || product.is_active !== true) {
+      throw new AppError('Product is not available', 400);
+    }
     
     if (item.variant_id) {
       const variant = item.product_variants;
-      if (!variant || variant.stock < item.quantity) {
+      if (
+        !variant
+        || variant.product_id !== item.productId
+        || (variant.stock ?? 0) < item.quantity
+      ) {
         throw new AppError(`Not enough stock for variant of product: ${product.name}`, 400);
       }
     } else {
-      if (!product || product.stock < item.quantity) {
+      if ((product.stock ?? 0) < item.quantity) {
         throw new AppError(`Not enough stock for product: ${product?.name}`, 400);
       }
     }
@@ -43,7 +69,7 @@ async function createOrder(userId, payload) {
     userId, 
     data, 
     cart.items, 
-    cart.totalPrice
+    cart.totalPrice + SHIPPING_FEE
   );
 
   return order;
@@ -78,6 +104,10 @@ async function getUserOrders(userId) {
   return orderRepository.findManyByUserId(userId);
 }
 
+async function getAdminOrders() {
+  return orderRepository.findManyForAdmin();
+}
+
 async function updateOrderStatus(orderId, statusInput) {
   const status = String(statusInput || '').toUpperCase();
   
@@ -88,6 +118,10 @@ async function updateOrderStatus(orderId, statusInput) {
   }
 
   const currentStatus = order.status || 'PENDING';
+
+  if (!VALID_TRANSITIONS[currentStatus]) {
+    throw new AppError(`Order has invalid status: ${currentStatus}`, 400);
+  }
 
   // Validate status existence
   if (!VALID_TRANSITIONS[status]) {
@@ -152,5 +186,6 @@ module.exports = {
   createOrder,
   cancelOrder,
   getUserOrders,
+  getAdminOrders,
   updateOrderStatus,
 };
